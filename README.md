@@ -1,4 +1,4 @@
-# Neo4j Browser
+# ONgDB Browser (AKA Neo4j Browser)
 
 ## Development setup
 

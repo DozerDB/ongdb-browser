@@ -9,7 +9,7 @@ Cypress.Commands.add('setInitialPassword', newPassword => {
     // We assume pw already set on local
     return
   }
-  cy.title().should('include', 'Neo4j Browser')
+  cy.title().should('include', 'ONgDB Browser')
 
   cy
     .get('input[data-test-id="boltaddress"]')

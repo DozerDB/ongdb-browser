@@ -7,7 +7,7 @@ before(function () {
   cy
     .visit(Cypress.env('BROWSER_URL') || 'http://localhost:8080')
     .title()
-    .should('include', 'Neo4j Browser')
+    .should('include', 'ONgDB Browser')
 })
 
 afterEach(function () {

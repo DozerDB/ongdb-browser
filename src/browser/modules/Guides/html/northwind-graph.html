@@ -37,7 +37,7 @@
       <div class="col-sm-9">
         <h4>Load records</h4>
         <figure>
-          <pre class="pre-scrollable code runnable">LOAD CSV WITH HEADERS FROM &quot;http://data.neo4j.com/northwind/products.csv&quot; AS row
+          <pre class="pre-scrollable code runnable">LOAD CSV WITH HEADERS FROM &quot;http://cdn.graphfoundation.org/data/northwind/products.csv&quot; AS row
 CREATE (n:Product)
 SET n = row,
   n.unitPrice = toFloat(row.unitPrice),
@@ -45,12 +45,12 @@ SET n = row,
   n.reorderLevel = toInteger(row.reorderLevel), n.discontinued = (row.discontinued &lt;&gt; &quot;0&quot;)</pre>
         </figure>
         <figure>
-          <pre class="pre-scrollable code runnable">LOAD CSV WITH HEADERS FROM &quot;http://data.neo4j.com/northwind/categories.csv&quot; AS row
+          <pre class="pre-scrollable code runnable">LOAD CSV WITH HEADERS FROM &quot;http://cdn.graphfoundation.org/data/northwind/categories.csv&quot; AS row
 CREATE (n:Category)
 SET n = row</pre>
         </figure>
         <figure>
-          <pre class="pre-scrollable code runnable">LOAD CSV WITH HEADERS FROM &quot;http://data.neo4j.com/northwind/suppliers.csv&quot; AS row
+          <pre class="pre-scrollable code runnable">LOAD CSV WITH HEADERS FROM &quot;http://cdn.graphfoundation.org/data/northwind/suppliers.csv&quot; AS row
 CREATE (n:Supplier)
 SET n = row</pre>
         </figure>
@@ -129,12 +129,12 @@ RETURN DISTINCT s.companyName as ProduceSuppliers</pre>
       <div class="col-sm-9">
         <h4>Load and index records</h4>
         <figure>
-          <pre class="pre-scrollable code runnable">LOAD CSV WITH HEADERS FROM &quot;http://data.neo4j.com/northwind/customers.csv&quot; AS row
+          <pre class="pre-scrollable code runnable">LOAD CSV WITH HEADERS FROM &quot;http://cdn.graphfoundation.org/data/northwind/customers.csv&quot; AS row
 CREATE (n:Customer)
 SET n = row</pre>
         </figure>
         <figure>
-          <pre class="pre-scrollable code runnable">LOAD CSV WITH HEADERS FROM &quot;http://data.neo4j.com/northwind/orders.csv&quot; AS row
+          <pre class="pre-scrollable code runnable">LOAD CSV WITH HEADERS FROM &quot;http://cdn.graphfoundation.org/data/northwind/orders.csv&quot; AS row
 CREATE (n:Order)
 SET n = row</pre>
         </figure>
@@ -167,7 +167,7 @@ CREATE (c)-[:PURCHASED]-&gt;(o)</pre>
       <div class="col-sm-9">
         <h4>Load and index records</h4>
         <figure>
-          <pre class="pre-scrollable code runnable">LOAD CSV WITH HEADERS FROM &quot;http://data.neo4j.com/northwind/order-details.csv&quot; AS row
+          <pre class="pre-scrollable code runnable">LOAD CSV WITH HEADERS FROM &quot;http://cdn.graphfoundation.org/data/northwind/order-details.csv&quot; AS row
 MATCH (p:Product), (o:Order)
 WHERE p.productID = row.productID AND o.orderID = row.orderID
 CREATE (o)-[details:ORDERS]-&gt;(p)

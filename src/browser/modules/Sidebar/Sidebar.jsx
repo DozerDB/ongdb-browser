@@ -79,14 +79,14 @@ class Sidebar extends Component {
       }
     ]
     const bottomNavItemsList = [
-      {
+      /* {
         name: 'Sync',
         title: 'Cloud Services',
         icon: isOpen => (
           <CloudSyncIcon isOpen={isOpen} connected={this.props.syncConnected} />
         ),
         content: BrowserSync
-      },
+      }, */
       {
         name: 'Settings',
         title: 'Browser Settings',
@@ -95,7 +95,7 @@ class Sidebar extends Component {
       },
       {
         name: 'About',
-        title: 'About Neo4j',
+        title: 'About ONgDB',
         icon: isOpen => <AboutIcon isOpen={isOpen} />,
         content: AboutDrawer
       }
