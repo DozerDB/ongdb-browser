@@ -43,7 +43,7 @@ const About = ({ serverVersion, serverEdition }) => (
             Neo4j, Inc
           </a>
           <br />
-          ensured to stay free and open source by the {' '}
+          ensured to stay free and open source by the{' '}
           <a target='_blank' href='http://graphfoundation.org/'>
             Graph Foundation
           </a>
@@ -109,7 +109,7 @@ const About = ({ serverVersion, serverEdition }) => (
           <a target='_blank' href='http://github.com/neo4j'>
             Neo4j
           </a>{' '}
-           |{' '}
+          |{' '}
           <a target='_blank' href='http://github.com/graphfoundation'>
             ONgDB
           </a>{' '}
@@ -138,7 +138,9 @@ const About = ({ serverVersion, serverEdition }) => (
           Thanks for all the feedback, discussions and contributions.
         </DrawerSectionBody>
         <DrawerFooter>
-          <DrawerSectionBody>With &#9829; from Sweden.</DrawerSectionBody>
+          <DrawerSectionBody>
+            With &#9829; from the community.
+          </DrawerSectionBody>
         </DrawerFooter>
       </DrawerSection>
     </DrawerBody>
