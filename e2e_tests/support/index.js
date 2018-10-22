@@ -1,6 +1,7 @@
 import './commands'
 import './defaults'
 
+
 /* global Cypress */
 
 afterEach(function () {

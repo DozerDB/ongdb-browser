@@ -25,7 +25,8 @@ const Carousel = '[data-test-id="carousel"]'
 const SubmitQueryButton = '[data-test-id="submitQuery"]'
 const ClearEditorButton = '[data-test-id="clearEditorContent"]'
 
-describe('Neo4j Browser', () => {
+
+describe('ONgDB Browser', () => {
   before(function () {
     cy.visit(Cypress.config.url)
       .title()
