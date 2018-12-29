@@ -30,7 +30,7 @@ describe('asTitleString', () => {
     const title = asTitleString(connectionData)
 
     // Then
-    expect(title).toBe('Neo4j Browser')
+    expect(title).toBe('ONgDB Browser')
   })
   test('should return static copy if there is connectionData but values are both falsy', () => {
     // Given
@@ -42,7 +42,7 @@ describe('asTitleString', () => {
     const title = asTitleString(connectionData)
 
     // Then
-    expect(title).toBe('Neo4j Browser')
+    expect(title).toBe('ONgDB Browser')
   })
   test('should return host + static copy if there is connectionData host', () => {
     // Given
@@ -54,7 +54,7 @@ describe('asTitleString', () => {
     const title = asTitleString(connectionData)
 
     // Then
-    expect(title).toBe(`${host} - Neo4j Browser`)
+    expect(title).toBe(`${host} - ONgDB Browser`)
   })
   test('should return username + static copy if there is connectionData host', () => {
     // Given
@@ -66,7 +66,7 @@ describe('asTitleString', () => {
     const title = asTitleString(connectionData)
 
     // Then
-    expect(title).toBe(`${username} - Neo4j Browser`)
+    expect(title).toBe(`${username} - ONgDB Browser`)
   })
   test('should return string with username and host from connectionData', () => {
     // Given
