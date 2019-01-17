@@ -11,6 +11,8 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
+    <maven.repository.snapshots>https://oss.sonatype.org/content/repositories/snapshots</maven.repository.snapshots>
+    <maven.repository.releases>https://oss.sonatype.org/service/local/staging/deploy/maven2</maven.repository.releases>
     <license-text.header>GPL-3-header.txt</license-text.header>
     <licensing.prepend.text>notice-gpl-prefix.txt</licensing.prepend.text>
     <attach-javadoc-phase>none</attach-javadoc-phase>
@@ -141,14 +143,24 @@
         </executions>
       </plugin>
     </plugins>
+    <extensions>
+      <extension>
+        <groupId>org.kuali.maven.wagons</groupId>
+        <artifactId>maven-s3-wagon</artifactId>
+        <version>1.2.1</version>
+      </extension>
+    </extensions>
   </build>
   <distributionManagement>
+    <snapshotRepository>
+      <id>graphfoundation-snapshots</id>
+      <name>Graph Foundation Snapshot Repository</name>
+      <url>${maven.repository.snapshots}</url>
+    </snapshotRepository>
     <repository>
-      <id>releases@repo.neo4j.org</id>
-      <uniqueVersion>true</uniqueVersion>
-      <name>ONgDB Releases</name>
-      <url>http://m2.graphfoundation.org/content/repositories/releases/</url>
-      <layout>default</layout>
+      <id>graphfoundation-releases</id>
+      <name>Graph Foundation Release Repository</name>
+      <url>${maven.repository.releases}</url>
     </repository>
   </distributionManagement>
 </project>
