@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>org.neo4j.client</groupId>
-  <artifactId>neo4j-browser</artifactId>
+  <groupId>org.graphfoundation.ongdb.client</groupId>
+  <artifactId>ongdb-browser</artifactId>
   <version>3.2.16</version>
-  <name>Neo4j - Browser</name>
+  <name>ONgDB - Browser</name>
   <description>Graph database client.</description>
-  <url>https://github.com/neo4j/neo4j</url>
+  <url>https://github.com/graphfoundation/ongdb</url>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.source>1.8</maven.compiler.source>
@@ -92,7 +92,7 @@
           <archive>
             <index>true</index>
             <manifest>
-              <packageName>org/neo4j/client</packageName>
+              <packageName>org/graphfoundation/ongdb/client</packageName>
             </manifest>
           </archive>
         </configuration>
@@ -146,8 +146,8 @@
     <repository>
       <id>releases@repo.neo4j.org</id>
       <uniqueVersion>true</uniqueVersion>
-      <name>Neo4j Releases</name>
-      <url>http://m2.neo4j.org/content/repositories/releases/</url>
+      <name>ONgDB Releases</name>
+      <url>http://m2.graphfoundation.org/content/repositories/releases/</url>
       <layout>default</layout>
     </repository>
   </distributionManagement>
