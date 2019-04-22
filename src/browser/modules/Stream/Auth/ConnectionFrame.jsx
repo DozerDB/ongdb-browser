@@ -61,7 +61,7 @@ export class ConnectionFrame extends Component {
             <StyledConnectionAside>
               <Render if={!this.state.success}>
                 <div>
-                  <H3>Connect to Neo4j</H3>
+                  <H3>Connect to ONgDB</H3>
                   <Lead>
                     Database access requires an authenticated connection.
                   </Lead>
@@ -69,7 +69,7 @@ export class ConnectionFrame extends Component {
               </Render>
               <Render if={this.state.success}>
                 <div>
-                  <H3>Connected to Neo4j</H3>
+                  <H3>Connected to ONgDB</H3>
                   <Lead>Nice to meet you.</Lead>
                 </div>
               </Render>
