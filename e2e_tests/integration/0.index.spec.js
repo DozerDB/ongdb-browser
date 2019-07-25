@@ -25,7 +25,7 @@ const Carousel = '[data-testid="carousel"]'
 const SubmitQueryButton = '[data-testid="submitQuery"]'
 const ClearEditorButton = '[data-testid="clearEditorContent"]'
 
-describe('Neo4j Browser', () => {
+describe('ONgDB Browser', () => {
   before(function () {
     cy.visit(Cypress.config('url'))
       .title()
@@ -44,10 +44,7 @@ describe('Neo4j Browser', () => {
   })
   it('can connect', () => {
     const password = Cypress.config('password')
-    cy.connect(
-      'neo4j',
-      password
-    )
+    cy.connect('neo4j', password)
   })
   it('can empty the db', () => {
     cy.executeCommand(':clear')
@@ -126,10 +123,7 @@ describe('Neo4j Browser', () => {
     cy.executeCommand(':server disconnect')
     cy.get('[data-testid="user-details-username"]').should('have.length', 0)
     cy.get('[data-testid="user-details-roles"]').should('have.length', 0)
-    cy.connect(
-      'neo4j',
-      Cypress.config('password')
-    )
+    cy.connect('neo4j', Cypress.config('password'))
     cy.executeCommand(':clear')
     cy.get('[data-testid="user-details-username"]').should('contain', 'neo4j')
     cy.get('[data-testid="user-details-roles"]').should('contain', 'admin')
