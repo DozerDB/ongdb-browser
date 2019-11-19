@@ -200,7 +200,7 @@ describe('connectionsDucks Epics', () => {
           expect(store.getActions()).toEqual([
             action,
             connections.setActiveConnection(null),
-            updateDiscoveryConnection({ username: 'neo4j', password: '' }),
+            updateDiscoveryConnection({ username: '', password: '' }),
             currentAction
           ])
           expect(bolt.openConnection).toHaveBeenCalledTimes(0)
@@ -249,6 +249,9 @@ describe('startupConnectEpic', () => {
   beforeAll(() => {
     bolt.openConnection.mockReset()
     store = mockStore({
+      settings: {
+        connectionTimeout: 30
+      },
       connections: {
         activeConnection: null,
         connectionsById: {
@@ -282,10 +285,10 @@ describe('startupConnectEpic', () => {
           expect(actions).toEqual([
             action,
             connections.setActiveConnection(null),
-            updateDiscoveryConnection({ username: 'neo4j', password: '' }),
+            updateDiscoveryConnection({ username: '', password: '' }),
             currentAction
           ])
-          expect(bolt.openConnection).toHaveBeenCalledTimes(2)
+          expect(bolt.openConnection).toHaveBeenCalledTimes(1)
           expect(bolt.closeConnection).toHaveBeenCalledTimes(1)
           resolve()
         } catch (e) {

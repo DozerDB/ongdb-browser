@@ -24,6 +24,8 @@ import { dim } from 'browser-styles/constants'
 
 import SVGInline from 'react-svg-inline'
 
+import { hexToRgba } from '../../styles/utils'
+
 import styles from './style.css'
 
 export const CloseButton = props => {
@@ -45,6 +47,7 @@ export const EditorButton = props => {
     </BaseButton>
   )
 }
+
 const BaseButton = styled.span`
   font-family: ${props => props.theme.streamlineFontFamily};
   font-style: normal !important;
@@ -82,6 +85,7 @@ export const StyledNavigationButton = styled.button`
     outline: none;
   }
 `
+
 export const NavigationButtonContainer = styled.li`
   min-height: 70px;
   height: 70px;
@@ -93,12 +97,13 @@ export const NavigationButtonContainer = styled.li`
 `
 
 const StyledFormButton = styled.button`
-  color: ${props => props.theme.secondaryButtonText};
-  background-color: ${props => props.theme.secondaryButtonBackground};
-  border: ${props => props.theme.secondaryButtonBorder};
+  color: ${props => props.theme.primaryButtonText};
+  background-color: ${props => props.theme.primaryButtonBackground};
+  border: 1px solid ${props => props.theme.primaryButtonBackground};
   font-family: ${props => props.theme.primaryFontFamily};
-  padding: 6px 12px;
-  font-weight: 400;
+  padding: 6px 18px;
+  margin-right: 10px;
+  font-weight: 600;
   font-size: 14px;
   text-align: center;
   white-space: nowrap;
@@ -109,7 +114,53 @@ const StyledFormButton = styled.button`
   &:hover {
     background-color: ${props => props.theme.secondaryButtonBackgroundHover};
     color: ${props => props.theme.secondaryButtonTextHover};
-    border: ${props => props.theme.secondaryButtonBorderHover};
+    border: 1px solid ${props => props.theme.secondaryButtonBackgroundHover};
+  }
+`
+
+const StyledTagButton = styled(StyledFormButton)`
+  background-color: ${props => props.theme.secondaryButtonBackgroundHover};
+  color: ${props => props.theme.secondaryButtonTextHover};
+  border: 1px solid ${props => props.theme.secondaryButtonBackgroundHover};
+  font-weight: 400;
+  padding: 6px 30px 6px 12px;
+  position: relative;
+  text-align: left;
+
+  > i {
+    background-color: ${props => props.theme.primaryButtonText};
+    border-radius: 50%;
+    color: ${props => props.theme.secondaryButtonBackgroundHover};
+    position: absolute;
+    right: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    > span {
+      display: inline-block;
+      vertical-align: middle;
+    }
+
+    svg {
+      display: block;
+      width: 8px !important;
+      height: 8px !important;
+    }
+
+    line {
+      stroke-width: 4px;
+    }
+  }
+
+  &:hover {
+    > i {
+      color: ${props => props.theme.secondaryButtonBackgroundHover};
+    }
   }
 `
 
@@ -134,6 +185,16 @@ export const StyledErrorBoundaryButton = styled(StyledFormButton)`
     background-color: #fbf1f0;
   }
 `
+export const StyledDestructiveButton = styled(StyledFormButton)`
+  color: #fff;
+  border: 1px solid #da4433;
+  background-color: #da4433;
+  &:hover {
+    color: #fff;
+    border: 1px solid #da4433;
+    background-color: #da4433;
+  }
+`
 const StyledDrawerFormButton = styled(StyledSecondaryFormButton)`
   color: #bcc0c9;
   border-color: #bcc0c9;
@@ -147,7 +208,9 @@ const StyledDrawerFormButton = styled(StyledSecondaryFormButton)`
 const buttonTypes = {
   primary: StyledFormButton,
   secondary: StyledSecondaryFormButton,
-  drawer: StyledDrawerFormButton
+  drawer: StyledDrawerFormButton,
+  destructive: StyledDestructiveButton,
+  tag: StyledTagButton
 }
 
 export const FormButton = props => {
@@ -223,6 +286,7 @@ export const FrameButton = props => {
     <StyledFrameButton {...rest}>{children}</StyledFrameButton>
   )
 }
+
 const StyledFrameButton = styled.li`
   color: ${props => props.theme.secondaryButtonText};
   background-color: transparent;
@@ -285,52 +349,87 @@ export const ActionButton = props => {
 }
 
 const BaseCarouselButton = styled.button`
-  order: 1;
-  background-color: rgb(34, 34, 34);
-  border: 3px solid rgb(255, 255, 255);
-  color: rgb(255, 255, 255);
-  cursor: pointer;
-  margin: 0 20px;
-  font-family: ${props => props.theme.primaryFontFamily};
-  font-size: 60px;
-  font-weight: 100;
-  height: 40px;
-  min-height: 40px;
-  border-radius: 50%;
-  line-height: 0;
-  opacity: 0.5;
-  position: relative;
-  text-align: center;
-  text-decoration: none;
-  text-shadow: rgba(0, 0, 0, 0.6) 0px 1px 2px;
-  top: 130px;
-  width: 40px;
-  min-width: 40px;
-  -webkit-font-smoothing: antialiased;
+  background-color: transparent;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 28px;
+  width: 28px;
+  padding: 0;
+  border: 0;
   user-select: none;
-  &:hover {
-    color: #fff;
-    text-decoration: none;
-    filter: alpha(opacity=90);
-    outline: 0;
-    opacity: 0.9;
+  outline: none;
+
+  &.rounded {
+    background-color: ${props =>
+    hexToRgba(props.theme.secondaryButtonText, 0.1)};
+    border-radius: 0 5px 5px 0;
+    position: absolute;
+    left: 0;
+    top: 20px;
+    bottom: 59px;
+    height: auto;
+    width: 32px;
+
+    i {
+      margin-right: 3px;
+    }
+
+    &.next-slide {
+      border-radius: 5px 0 0 5px;
+      left: auto;
+      right: 0;
+
+      i {
+        margin-left: 3px;
+        margin-right: 0;
+      }
+    }
+
+    .is-fullscreen & {
+      top: calc(50% - 20px);
+      bottom: auto;
+      height: 50%;
+      max-height: 420px;
+      transform: translateY(-50%);
+    }
   }
-  &:focus {
-    outline: none;
+
+  &:disabled {
+    opacity: 0.4;
+    pointer-events: none;
+  }
+
+  &.previous-slide {
+    margin-right: 0.5rem;
+
+    &:hover {
+      svg {
+        transform: translateX(-2px);
+        transition: transform 0.2s ease-in-out;
+      }
+    }
+  }
+  &.next-slide {
+    margin-left: 0.5rem;
+
+    &:hover {
+      svg {
+        transform: translateX(2px);
+        transition: transform 0.2s ease-in-out;
+      }
+    }
+  }
+
+  i,
+  span {
+    display: flex;
   }
 `
-const CarouselButtonOverlay = styled.span`
-  position: absolute;
-  top: 5px;
-  left: 8px;
-`
+
 export const CarouselButton = props => {
   const { children, ...rest } = props
-  return (
-    <BaseCarouselButton {...rest}>
-      <CarouselButtonOverlay>{children}</CarouselButtonOverlay>
-    </BaseCarouselButton>
-  )
+  return <BaseCarouselButton {...rest}>{children}</BaseCarouselButton>
 }
 
 export const StyledLink = styled.a`

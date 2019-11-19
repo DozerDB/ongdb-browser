@@ -39,10 +39,7 @@ describe('Multi statements', () => {
   })
   it('can connect', () => {
     const password = Cypress.config('password')
-    cy.connect(
-      'neo4j',
-      password
-    )
+    cy.connect('neo4j', password)
   })
   it('can run multiple statements (non open by default)', () => {
     cy.executeCommand(':clear')
@@ -74,7 +71,7 @@ describe('Multi statements', () => {
     cy.get('[data-testid="frameCommand"]', { timeout: 10000 })
       .first()
       .should('contain', validQuery)
-    cy.get('[data-testid="frameStatusbar"]', { timeout: 10000 })
+    cy.get('[data-testid="frameContents"]', { timeout: 10000 })
       .first()
       .should('contain', 'Error')
 

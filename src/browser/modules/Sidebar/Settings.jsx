@@ -62,6 +62,13 @@ const visualSettings = [
         }
       },
       {
+        codeFontLigatures: {
+          displayName: 'Code font ligatures',
+          tooltip: 'Use font ligatures for the command bar and cypher snippets',
+          type: 'checkbox'
+        }
+      },
+      {
         editorAutocomplete: {
           displayName: 'Enhanced query editor',
           tooltip: 'Autocomplete and syntax highlighting in query editor',
@@ -91,6 +98,14 @@ const visualSettings = [
         initCmd: {
           displayName: 'Initial command to execute',
           tooltip: 'This commands is executed once connected to a graph.',
+          type: 'input'
+        }
+      },
+      {
+        connectionTimeout: {
+          displayName: 'Connection timeout (ms)',
+          tooltip:
+            'The timeout in milliseconds when establishing a connection to Neo4j.',
           type: 'input'
         }
       }

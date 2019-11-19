@@ -21,7 +21,7 @@ import React from 'react'
 import styled from 'styled-components'
 import Snake from './Snake'
 import Score from './Score'
-import FrameTemplate from '../../FrameTemplate'
+import FrameTemplate from '../../../Frame/FrameTemplate'
 import { PaddedDiv } from '../../styled'
 import { FormButton } from 'browser/components/buttons/index'
 import { worldColor, foodColor } from './helpers'
@@ -106,7 +106,7 @@ export class SnakeFrame extends React.Component {
         <SplashContents>
           <h2>Snake game!</h2>
           <InitialStartButton backgroundColor={foodColor} onClick={this.play}>
-            Start game!
+            Start the game!
           </InitialStartButton>
           <p>
             Use <strong>arrow keys</strong> or <strong>a-s-w-d</strong> to

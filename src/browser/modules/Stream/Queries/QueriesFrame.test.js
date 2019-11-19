@@ -23,7 +23,7 @@
 /* eslint-disable standard/no-callback-literal */
 
 import React from 'react'
-import { render, fireEvent } from 'react-testing-library'
+import { render, fireEvent } from '@testing-library/react'
 import { createBus } from 'suber'
 import { QueriesFrame } from './QueriesFrame'
 import {
@@ -31,7 +31,7 @@ import {
   CONNECTED_STATE
 } from 'shared/modules/connections/connectionsDuck'
 
-jest.mock('../FrameTemplate', () => ({ contents, statusbar }) => (
+jest.mock('../../Frame/FrameTemplate', () => ({ contents, statusbar }) => (
   <div>
     {contents}
     {statusbar}

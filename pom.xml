@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.graphfoundation.ongdb.client</groupId>
   <artifactId>ongdb-browser</artifactId>
-  <version>3.2.20</version>
+  <version>3.2.26</version>
   <name>ONgDB - Browser</name>
   <description>Graph database client.</description>
   <url>https://github.com/graphfoundation/ongdb</url>
@@ -31,7 +31,7 @@
   <scm>
     <connection>scm:git:git://github.com/graphfoundation/neo4j-browser.git</connection>
     <developerConnection>scm:git:git@github.com:graphfoundation/neo4j-browser.git</developerConnection>
-    <url>https://github.com/graphfoundation/neo4j-browser</url>
+    <url>https://github.com/graphfoundation/ongdb-browser</url>
   </scm>
   <licenses>
     <license>
@@ -40,7 +40,7 @@
       <comments>
 		  100% GNU GPL V3 Open Source License.
 
-  
+
       </comments>
     </license>
   </licenses>

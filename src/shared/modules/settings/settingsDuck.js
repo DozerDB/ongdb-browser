@@ -29,6 +29,8 @@ export const LIGHT_THEME = 'normal'
 export const OUTLINE_THEME = 'outline'
 export const DARK_THEME = 'dark'
 
+export const NEO4J_CLOUD_DOMAINS = ['neo4j.io']
+
 export const getSettings = state => state[NAME]
 export const getMaxHistory = state =>
   state[NAME].maxHistory || initialState.maxHistory
@@ -68,6 +70,9 @@ export const getCmdChar = state => state[NAME].cmdchar || initialState.cmdchar
 export const shouldEditorAutocomplete = state =>
   state[NAME].editorAutocomplete !== false
 export const shouldUseCypherThread = state => state[NAME].useCypherThread
+export const getConnectionTimeout = state =>
+  state[NAME].connectionTimeout || initialState.connectionTimeout
+export const codeFontLigatures = state => state[NAME].codeFontLigatures
 
 const initialState = {
   cmdchar: ':',
@@ -83,10 +88,12 @@ const initialState = {
   autoComplete: true,
   scrollToTop: true,
   maxFrames: 30,
+  codeFontLigatures: true,
   editorAutocomplete: true,
   editorLint: false,
   useCypherThread: true,
-  enableMultiStatementMode: false
+  enableMultiStatementMode: false,
+  connectionTimeout: 30 * 1000 // 30 seconds
 }
 
 export default function settings (state = initialState, action) {

@@ -23,6 +23,7 @@ import { getUrlInfo } from 'services/utils'
 
 export const KERBEROS = 'KERBEROS'
 export const NATIVE = 'NATIVE'
+export const NO_AUTH = 'NO_AUTH'
 
 export const getEncryptionMode = options => {
   if (options && typeof options['encrypted'] !== 'undefined') {
@@ -31,9 +32,8 @@ export const getEncryptionMode = options => {
   return location.protocol === 'https:'
 }
 
-export const getDiscoveryEndpoint = () => {
-  const url = location.host ? location.href : 'http://localhost:7474/'
-  const info = getUrlInfo(url)
+export const getDiscoveryEndpoint = url => {
+  const info = getUrlInfo(url || 'http://localhost:7474/')
   return `${info.protocol}//${info.host}/`
 }
 

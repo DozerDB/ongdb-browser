@@ -17,13 +17,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+import 'core-js/stable'
+import 'regenerator-runtime/runtime'
 import './styles/bootstrap.grid-only.min.css'
 import './styles/streamline.css'
 import './styles/editor.css'
 import './styles/neo4j-world.css'
 import './styles/font-awesome.min.css'
-import './styles/inconsolata.css'
+import './styles/fira-code.css'
 import './styles/open-sans.css'
+import '@relate-by-ui/css/semantic/dist/relate-by.min.css'
 
 // non web env (just for tests)
 if (typeof btoa === 'undefined') {

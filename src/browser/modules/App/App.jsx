@@ -21,12 +21,12 @@ import React, { useEffect } from 'react'
 import { connect } from 'react-redux'
 import { withBus } from 'react-suber'
 import { ThemeProvider } from 'styled-components'
-import { hot } from 'react-hot-loader'
 import * as themes from 'browser/styles/themes'
 import {
   getTheme,
   getCmdChar,
   getBrowserSyncConfig,
+  codeFontLigatures,
   LIGHT_THEME
 } from 'shared/modules/settings/settingsDuck'
 import { FOCUS, EXPAND } from 'shared/modules/editor/editorDuck'
@@ -36,6 +36,7 @@ import { allowOutgoingConnections } from 'shared/modules/dbMeta/dbMetaDuck'
 import {
   getActiveConnection,
   getConnectionState,
+  getLastConnectionUpdate,
   getActiveConnectionData,
   isConnected,
   getConnectionData,
@@ -73,6 +74,7 @@ import { getExperimentalFeatures } from 'shared/modules/experimentalFeatures/exp
 import FeatureToggleProvider from '../FeatureToggle/FeatureToggleProvider'
 import { inWebEnv, URL_ARGUMENTS_CHANGE } from 'shared/modules/app/appDuck'
 import useDerivedTheme from 'browser-hooks/useDerivedTheme'
+import FileDrop from 'browser-components/FileDrop/FileDrop'
 
 export function App (props) {
   const [derivedTheme, setEnvironmentTheme] = useDerivedTheme(
@@ -114,6 +116,7 @@ export function App (props) {
     handleNavClick,
     activeConnection,
     connectionState,
+    lastConnectionUpdate,
     errorMessage,
     loadExternalScripts,
     loadSync,
@@ -121,64 +124,74 @@ export function App (props) {
     browserSyncMetadata,
     browserSyncConfig,
     browserSyncAuthStatus,
-    experimentalFeatures
+    experimentalFeatures,
+    store,
+    codeFontLigatures
   } = props
+
+  const wrapperClassNames = []
+  if (!codeFontLigatures) {
+    wrapperClassNames.push('disable-font-ligatures')
+  }
 
   return (
     <ErrorBoundary>
       <ThemeProvider theme={themeData}>
         <FeatureToggleProvider features={experimentalFeatures}>
-          <StyledWrapper>
-            <DocTitle titleString={props.titleString} />
-            <UserInteraction />
-            <DesktopIntegration
-              integrationPoint={props.desktopIntegrationPoint}
-              onArgumentsChange={props.onArgumentsChange}
-              onMount={(
-                activeGraph,
-                connectionsCredentials,
-                context,
-                getKerberosTicket
-              ) => {
-                props.setInitialConnectionData(
+          <FileDrop store={store}>
+            <StyledWrapper className={wrapperClassNames}>
+              <DocTitle titleString={props.titleString} />
+              <UserInteraction />
+              <DesktopIntegration
+                integrationPoint={props.desktopIntegrationPoint}
+                onArgumentsChange={props.onArgumentsChange}
+                onMount={(
                   activeGraph,
                   connectionsCredentials,
                   context,
                   getKerberosTicket
-                )
-                detectDesktopThemeChanges(null, context)
-              }}
-              onGraphActive={props.switchConnection}
-              onGraphInactive={props.closeConnectionMaybe}
-              onColorSchemeUpdated={detectDesktopThemeChanges}
-            />
-            <Render if={loadExternalScripts}>
-              <Intercom appID='lq70afwx' />
-            </Render>
-            <Render if={syncConsent && loadExternalScripts && loadSync}>
-              <BrowserSyncInit
-                authStatus={browserSyncAuthStatus}
-                authData={browserSyncMetadata}
-                config={browserSyncConfig}
+                ) => {
+                  props.setInitialConnectionData(
+                    activeGraph,
+                    connectionsCredentials,
+                    context,
+                    getKerberosTicket
+                  )
+                  detectDesktopThemeChanges(null, context)
+                }}
+                onGraphActive={props.switchConnection}
+                onGraphInactive={props.closeConnectionMaybe}
+                onColorSchemeUpdated={detectDesktopThemeChanges}
               />
-            </Render>
-            <StyledApp>
-              <StyledBody>
-                <ErrorBoundary>
-                  <Sidebar openDrawer={drawer} onNavClick={handleNavClick} />
-                </ErrorBoundary>
-                <StyledMainWrapper>
-                  <Main
-                    cmdchar={cmdchar}
-                    activeConnection={activeConnection}
-                    connectionState={connectionState}
-                    errorMessage={errorMessage}
-                    useBrowserSync={loadSync}
-                  />
-                </StyledMainWrapper>
-              </StyledBody>
-            </StyledApp>
-          </StyledWrapper>
+              <Render if={loadExternalScripts}>
+                <Intercom appID='lq70afwx' />
+              </Render>
+              <Render if={syncConsent && loadExternalScripts && loadSync}>
+                <BrowserSyncInit
+                  authStatus={browserSyncAuthStatus}
+                  authData={browserSyncMetadata}
+                  config={browserSyncConfig}
+                />
+              </Render>
+              <StyledApp>
+                <StyledBody>
+                  <ErrorBoundary>
+                    <Sidebar openDrawer={drawer} onNavClick={handleNavClick} />
+                  </ErrorBoundary>
+                  <StyledMainWrapper>
+                    <Main
+                      cmdchar={cmdchar}
+                      activeConnection={activeConnection}
+                      connectionState={connectionState}
+                      lastConnectionUpdate={lastConnectionUpdate}
+                      errorMessage={errorMessage}
+                      useBrowserSync={loadSync}
+                    />
+                  </StyledMainWrapper>
+                </StyledBody>
+              </StyledApp>
+            </StyledWrapper>
+          </FileDrop>
         </FeatureToggleProvider>
       </ThemeProvider>
     </ErrorBoundary>
@@ -192,7 +205,9 @@ const mapStateToProps = state => {
     drawer: state.drawer,
     activeConnection: getActiveConnection(state),
     theme: getTheme(state),
+    codeFontLigatures: codeFontLigatures(state),
     connectionState: getConnectionState(state),
+    lastConnectionUpdate: getLastConnectionUpdate(state),
     cmdchar: getCmdChar(state),
     errorMessage: getErrorMessage(state),
     loadExternalScripts:
@@ -267,12 +282,10 @@ const mergeProps = (stateProps, dispatchProps, ownProps) => {
   }
 }
 
-export default hot(module)(
-  withBus(
-    connect(
-      mapStateToProps,
-      mapDispatchToProps,
-      mergeProps
-    )(App)
-  )
+export default withBus(
+  connect(
+    mapStateToProps,
+    mapDispatchToProps,
+    mergeProps
+  )(App)
 )

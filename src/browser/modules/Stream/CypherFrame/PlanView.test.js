@@ -20,9 +20,8 @@
 
 /* global describe, test, expect */
 import React from 'react'
-import { render } from 'react-testing-library'
+import { render } from '@testing-library/react/pure'
 import { v1 as neo4j } from 'neo4j-driver'
-
 import { PlanView, PlanStatusbar } from './PlanView'
 
 describe('PlanViews', () => {
@@ -75,10 +74,13 @@ describe('PlanViews', () => {
       }
 
       // When
-      const { container } = render(<PlanStatusbar {...props} />)
+      const { getByText } = render(<PlanStatusbar {...props} />)
 
       // Then
-      expect(container).toMatchSnapshot()
+      expect(getByText(/xx0/))
+      expect(getByText(/xx1/))
+      expect(getByText(/xx2/))
+      expect(getByText(/xx3/))
     })
   })
 })

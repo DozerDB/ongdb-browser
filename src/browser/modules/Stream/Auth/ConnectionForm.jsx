@@ -26,7 +26,8 @@ import {
   getActiveConnection,
   setActiveConnection,
   updateConnection,
-  CONNECT
+  CONNECT,
+  VERIFY_CREDENTIALS
 } from 'shared/modules/connections/connectionsDuck'
 import { getInitCmd } from 'shared/modules/settings/settingsDuck'
 import { executeSystemCommand } from 'shared/modules/commands/commandsDuck'
@@ -34,7 +35,7 @@ import { shouldRetainConnectionCredentials } from 'shared/modules/dbMeta/dbMetaD
 import { FORCE_CHANGE_PASSWORD } from 'shared/modules/cypher/cypherDuck'
 import { changeCurrentUsersPasswordQueryObj } from 'shared/modules/cypher/procedureFactory'
 import { generateBoltHost } from 'services/utils'
-import { getEncryptionMode } from 'services/bolt/boltHelpers'
+import { getEncryptionMode, NATIVE, NO_AUTH } from 'services/bolt/boltHelpers'
 
 import ConnectForm from './ConnectForm'
 import ConnectedView from './ConnectedView'
@@ -46,9 +47,14 @@ export class ConnectionForm extends Component {
     const connection =
       this.props.activeConnectionData || this.props.frame.connectionData
     const isConnected = !!props.activeConnection
+    const authenticationMethod =
+      (connection && connection.authenticationMethod) || NATIVE
+
     this.state = {
       ...connection,
+      authenticationMethod,
       isConnected: isConnected,
+      isLoading: false,
       passwordChangeNeeded: props.passwordChangeNeeded || false,
       forcePasswordChange: props.forcePasswordChange || false,
       successCallback: props.onSuccess || (() => {}),
@@ -57,24 +63,41 @@ export class ConnectionForm extends Component {
   }
   tryConnect = (password, doneFn) => {
     this.props.error({})
-    this.props.bus.self(CONNECT, { ...this.state, password }, res => {
-      doneFn(res)
-    })
+    this.props.bus.self(
+      VERIFY_CREDENTIALS,
+      { ...this.state, password },
+      res => {
+        doneFn(res)
+      }
+    )
   }
-  connect = (doneFn = () => {}) => {
+  connect = (
+    doneFn = () => {},
+    onError = null,
+    noResetConnectionOnFail = false
+  ) => {
     this.props.error({})
-    this.props.bus.self(CONNECT, this.state, res => {
-      doneFn()
-      if (res.success) {
-        this.saveAndStart()
-      } else {
-        if (res.error.code === 'Neo.ClientError.Security.CredentialsExpired') {
-          this.setState({ passwordChangeNeeded: true })
+    this.props.bus.self(
+      CONNECT,
+      { ...this.state, noResetConnectionOnFail },
+      res => {
+        doneFn()
+        if (res.success) {
+          this.saveAndStart()
         } else {
-          this.props.error(res.error)
+          if (
+            res.error.code === 'Neo.ClientError.Security.CredentialsExpired'
+          ) {
+            this.setState({ passwordChangeNeeded: true })
+          } else {
+            if (onError) {
+              return onError(res)
+            }
+            this.props.error(res.error)
+          }
         }
       }
-    })
+    )
   }
   onUsernameChange (event) {
     const username = event.target.value
@@ -84,6 +107,14 @@ export class ConnectionForm extends Component {
   onPasswordChange (event) {
     const password = event.target.value
     this.setState({ password })
+    this.props.error({})
+  }
+  onAuthenticationMethodChange (event) {
+    const authenticationMethod = event.target.value
+    const username =
+      authenticationMethod === NO_AUTH ? '' : this.state.username || 'neo4j'
+    const password = authenticationMethod === NO_AUTH ? '' : this.state.password
+    this.setState({ authenticationMethod, username, password })
     this.props.error({})
   }
   onHostChange (event) {
@@ -98,10 +129,13 @@ export class ConnectionForm extends Component {
     this.props.error({})
   }
   onChangePassword ({ newPassword, error }) {
+    this.setState({ isLoading: true })
     if (error && error.code) {
+      this.setState({ isLoading: false })
       return this.props.error(error)
     }
     if (this.state.password === null) {
+      this.setState({ isLoading: false })
       return this.props.error({ message: 'Please set existing password' })
     }
     this.props.error({})
@@ -117,9 +151,38 @@ export class ConnectionForm extends Component {
       response => {
         if (response.success) {
           return this.setState({ password: newPassword }, () => {
-            this.connect()
+            let retries = 5
+            const retryFn = res => {
+              // New password not accepted yet, initiate retry
+              if (res.error.code === 'Neo.ClientError.Security.Unauthorized') {
+                retries--
+                if (retries > 0) {
+                  setTimeout(
+                    () =>
+                      this.connect(
+                        () => {
+                          this.setState({ isLoading: false })
+                        },
+                        retryFn,
+                        true
+                      ),
+                    200
+                  )
+                }
+              } else {
+                this.props.error(res.error)
+              }
+            }
+            this.connect(
+              () => {
+                this.setState({ isLoading: false })
+              },
+              retryFn,
+              true
+            )
           })
         }
+        this.setState({ isLoading: false })
         this.props.error(response.error)
       }
     )
@@ -136,7 +199,8 @@ export class ConnectionForm extends Component {
       id: this.state.id,
       host: this.state.host,
       username: this.state.username,
-      password: this.state.password
+      password: this.state.password,
+      authenticationMethod: this.state.authenticationMethod
     })
   }
   componentWillReceiveProps (nextProps) {
@@ -160,7 +224,12 @@ export class ConnectionForm extends Component {
           showExistingPasswordInput={this.props.showExistingPasswordInput}
           onChangePasswordClick={this.onChangePassword.bind(this)}
           onChange={this.onChangePasswordChange.bind(this)}
-          tryConnect={this.tryConnect}
+          tryConnect={(password, doneFn) => {
+            this.setState({ isLoading: true }, () =>
+              this.tryConnect(password, doneFn)
+            )
+          }}
+          isLoading={this.state.isLoading}
         >
           {this.props.children}
         </ChangePasswordForm>
@@ -171,6 +240,7 @@ export class ConnectionForm extends Component {
           host={this.state.host}
           username={this.state.username}
           storeCredentials={this.props.storeCredentials}
+          hideStoreCredentials={this.state.authenticationMethod === NO_AUTH}
         />
       )
     } else if (!this.state.isConnected && !this.state.passwordChangeNeeded) {
@@ -180,9 +250,13 @@ export class ConnectionForm extends Component {
           onHostChange={this.onHostChange.bind(this)}
           onUsernameChange={this.onUsernameChange.bind(this)}
           onPasswordChange={this.onPasswordChange.bind(this)}
+          onAuthenticationMethodChange={this.onAuthenticationMethodChange.bind(
+            this
+          )}
           host={this.state.hostInputVal || this.state.host}
           username={this.state.username}
           password={this.state.password}
+          authenticationMethod={this.state.authenticationMethod}
           used={this.state.used}
         />
       )

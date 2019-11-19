@@ -21,11 +21,11 @@
 /* global jest, describe, test, expect */
 
 import React from 'react'
-import { render } from 'react-testing-library'
+import { render } from '@testing-library/react'
 import { SysInfoFrame } from './index'
 
 jest.mock(
-  'browser/modules/Stream/FrameTemplate',
+  'browser/modules/Frame/FrameTemplate',
   () => ({ contents, children }) => (
     <div>
       {contents}

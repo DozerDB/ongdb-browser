@@ -18,15 +18,25 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import bolt from 'services/bolt/bolt'
 import { v1 as neo4j } from 'neo4j-driver'
+import {
+  entries,
+  get,
+  includes,
+  isObjectLike,
+  lowerCase,
+  map,
+  reduce
+} from 'lodash-es'
+
+import bolt from 'services/bolt/bolt'
 import * as viewTypes from 'shared/modules/stream/frameViewTypes'
 import {
   recursivelyExtractGraphItems,
   flattenArray
 } from 'services/bolt/boltMappings'
 import { stringifyMod } from 'services/utils'
-import { stringFormat } from 'services/bolt/cypherTypesFormatting'
+import { stringModifier } from 'services/bolt/cypherTypesFormatting'
 
 export function getBodyAndStatusBarMessages (result, maxRows) {
   if (!result || !result.summary || !result.summary.resultAvailableAfter) {
@@ -51,9 +61,7 @@ export function getBodyAndStatusBarMessages (result, maxRows) {
   let updateMessages = bolt.retrieveFormattedUpdateStatistics(result)
   let streamMessage =
     result.records.length > 0
-      ? `started streaming ${
-        result.records.length
-      } records ${resultAvailableAfter} ms and completed ${totalTimeString} ${streamMessageTail}`
+      ? `started streaming ${result.records.length} records ${resultAvailableAfter} ms and completed ${totalTimeString} ${streamMessageTail}`
       : `completed ${totalTimeString} ${streamMessageTail}`
 
   if (updateMessages && updateMessages.length > 0) {
@@ -171,7 +179,7 @@ export const initialView = (props, state = {}) => {
  * It takes a replacer without enforcing quoting rules to it.
  * Used so we can have Neo4j integers as string without quotes.
  */
-export const stringifyResultArray = (formatter = stringFormat, arr = []) => {
+export const stringifyResultArray = (formatter = stringModifier, arr = []) => {
   return arr.map(col => {
     if (!col) return col
     return col.map(fVal => {
@@ -286,4 +294,105 @@ const arrayifyPath = (types = neo4j.types, path) => {
       extractPropertiesFromGraphItems(types, segment.end)
     ].filter(part => part !== null)
   })
+}
+
+/**
+ * Converts a raw Neo4j record into a JSON friendly format, mimicking APOC output
+ * @param     {Record}    record
+ * @return    {*}
+ */
+export function recordToJSONMapper (record) {
+  const keys = get(record, 'keys', [])
+
+  return reduce(
+    keys,
+    (agg, key) => {
+      const field = record.get(key)
+
+      return {
+        ...agg,
+        [key]: mapNeo4jValuesToPlainValues(field)
+      }
+    },
+    {}
+  )
+}
+
+/**
+ * Recursively converts Neo4j values to plain values, leaving other types untouched
+ * @param     {*}     values
+ * @return    {*}
+ */
+function mapNeo4jValuesToPlainValues (values) {
+  if (!isObjectLike(values)) {
+    return values
+  }
+
+  if (Array.isArray(values)) {
+    return map(values, mapNeo4jValuesToPlainValues)
+  }
+
+  if (isNeo4jValue(values)) {
+    return neo4jValueToPlainValue(values)
+  }
+
+  // could be a Node or Relationship
+  const elementType = lowerCase(get(values, 'constructor.name', ''))
+
+  if (includes(['relationship', 'node'], elementType)) {
+    return {
+      elementType,
+      ...mapNeo4jValuesToPlainValues({ ...values })
+    }
+  }
+
+  return reduce(
+    entries(values),
+    (agg, [key, value]) => ({
+      ...agg,
+      [key]: mapNeo4jValuesToPlainValues(value)
+    }),
+    {}
+  )
+}
+
+/**
+ * Recursively convert Neo4j value to plain value, leaving other types untouched
+ * @param     {*}   value
+ * @return    {*}
+ */
+function neo4jValueToPlainValue (value) {
+  switch (get(value, 'constructor')) {
+    case neo4j.types.Date:
+    case neo4j.types.DateTime:
+    case neo4j.types.Duration:
+    case neo4j.types.LocalDateTime:
+    case neo4j.types.LocalTime:
+    case neo4j.types.Time:
+      return value.toString()
+    case neo4j.types.Integer: // not exposed in typings but still there
+      return value.inSafeRange() ? value.toInt() : value.toNumber()
+    default:
+      return value
+  }
+}
+
+/**
+ * checks if a value is a neo4j value
+ * @param value
+ * @return {boolean}
+ */
+function isNeo4jValue (value) {
+  switch (get(value, 'constructor')) {
+    case neo4j.types.Date:
+    case neo4j.types.DateTime:
+    case neo4j.types.Duration:
+    case neo4j.types.LocalDateTime:
+    case neo4j.types.LocalTime:
+    case neo4j.types.Time:
+    case neo4j.types.Integer: // not exposed in typings but still there
+      return true
+    default:
+      return false
+  }
 }

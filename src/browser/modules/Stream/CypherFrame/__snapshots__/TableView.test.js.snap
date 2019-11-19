@@ -3,7 +3,7 @@
 exports[`TableViews TableStatusbar displays no statusBarMessage 1`] = `
 <div>
   <div
-    class="styled__StyledStatsBar-sc-1dtvgs1-32 hNrxzW"
+    class="styled__StyledStatsBar-sc-1dtvgs1-23 gWjkIU"
   >
     <div
       class="Ellipsis-sc-1dn9bou-0 gzqRPC"
@@ -15,7 +15,7 @@ exports[`TableViews TableStatusbar displays no statusBarMessage 1`] = `
 exports[`TableViews TableStatusbar displays statusBarMessage 1`] = `
 <div>
   <div
-    class="styled__StyledStatsBar-sc-1dtvgs1-32 hNrxzW"
+    class="styled__StyledStatsBar-sc-1dtvgs1-23 gWjkIU"
   >
     <div
       class="Ellipsis-sc-1dn9bou-0 gzqRPC"
@@ -29,10 +29,10 @@ exports[`TableViews TableStatusbar displays statusBarMessage 1`] = `
 exports[`TableViews TableView displays bodyMessage if no rows 1`] = `
 <div>
   <div
-    class="styled__PaddedDiv-sc-1dtvgs1-6 styled__PaddedTableViewDiv-sc-1dtvgs1-7 iNSchp"
+    class="styled__PaddedDiv-sc-1dtvgs1-1 styled__PaddedTableViewDiv-sc-1dtvgs1-2 clXnC"
   >
     <div
-      class="styled__StyledBodyMessage-sc-1dtvgs1-35 hfUgGP"
+      class="styled__StyledBodyMessage-sc-1dtvgs1-26 gpPoTU"
     >
       (no changes, no records)
     </div>
@@ -43,7 +43,7 @@ exports[`TableViews TableView displays bodyMessage if no rows 1`] = `
 exports[`TableViews TableView does not display bodyMessage if rows 1`] = `
 <div>
   <div
-    class="styled__PaddedDiv-sc-1dtvgs1-6 styled__PaddedTableViewDiv-sc-1dtvgs1-7 iNSchp"
+    class="styled__PaddedDiv-sc-1dtvgs1-1 styled__PaddedTableViewDiv-sc-1dtvgs1-2 clXnC"
   >
     <table
       class="DataTables__StyledTable-bf850j-0 cZayOW"
@@ -51,7 +51,7 @@ exports[`TableViews TableView does not display bodyMessage if rows 1`] = `
       <thead>
         <tr>
           <th
-            class="table-header DataTables__StyledTh-bf850j-2 gjWFrA"
+            class="table-header DataTables__StyledTh-bf850j-2 ikUpyS"
           >
             x
           </th>
@@ -62,9 +62,11 @@ exports[`TableViews TableView does not display bodyMessage if rows 1`] = `
           class="table-row DataTables__StyledBodyTr-bf850j-1 iGjwRr"
         >
           <td
-            class="table-properties DataTables__StyledTd-bf850j-3 jDsjVi"
+            class="table-properties DataTables__StyledTd-bf850j-3 lfnTDs"
           >
-            "y"
+            <span>
+              "y"
+            </span>
           </td>
         </tr>
       </tbody>
@@ -74,11 +76,15 @@ exports[`TableViews TableView does not display bodyMessage if rows 1`] = `
 `;
 
 exports[`TableViews TableView renderObject handles null values 1`] = `
-<ForwardRef>
-  {
-  "x": 1.0
-}
-</ForwardRef>
+<ForwardRef(DataTables__StyledJsonPre)
+  dangerouslySetInnerHTML={
+    Object {
+      "__html": "{
+  \\"x\\": 1.0
+}",
+    }
+  }
+/>
 `;
 
 exports[`TableViews TableView renderObject handles null values 2`] = `
