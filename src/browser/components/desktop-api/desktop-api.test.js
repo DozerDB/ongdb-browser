@@ -139,4 +139,63 @@ describe('<DesktopApi>', () => {
       integrationPoint.getKerberosTicket
     )
   })
+  test('calls onArgumentsChange when args change', () => {
+    // Given
+    let componentOnArgumentsChange
+    const newArgsString = 'test=1&test2=2'
+    const fn = jest.fn()
+    const integrationPoint = {
+      onArgumentsChange: fn => (componentOnArgumentsChange = fn)
+    }
+
+    // When
+    render(
+      <DesktopApi integrationPoint={integrationPoint} onArgumentsChange={fn} />
+    )
+
+    // Then
+    expect(fn).toHaveBeenCalledTimes(0)
+
+    // When
+    componentOnArgumentsChange(newArgsString)
+
+    // Then
+    expect(fn).toHaveBeenCalledTimes(1)
+    expect(fn).toHaveBeenLastCalledWith(newArgsString)
+  })
+  test('calls sendMetrics callback if setEventMetricsCallback is set', () => {
+    // Given
+    let componentMetricsCallback
+    const metricsCallArgs = {
+      category: 'metrics_test',
+      label: 'runs',
+      data: { x: 1 }
+    }
+    const fn = takeMetrics => (componentMetricsCallback = takeMetrics)
+    const integrationPoint = {
+      sendMetrics: jest.fn()
+    }
+
+    // When
+    render(
+      <DesktopApi
+        integrationPoint={integrationPoint}
+        setEventMetricsCallback={fn}
+      />
+    )
+
+    // Then
+    expect(integrationPoint.sendMetrics).toHaveBeenCalledTimes(0)
+
+    // When
+    componentMetricsCallback(metricsCallArgs)
+
+    // Then
+    expect(integrationPoint.sendMetrics).toHaveBeenCalledTimes(1)
+    expect(integrationPoint.sendMetrics).toHaveBeenLastCalledWith(
+      metricsCallArgs.category,
+      metricsCallArgs.label,
+      metricsCallArgs.data
+    )
+  })
 })

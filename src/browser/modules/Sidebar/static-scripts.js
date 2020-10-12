@@ -39,7 +39,7 @@ const mapFavoritesStateToProps = state => {
   return {
     title: 'Sample Scripts',
     scriptsNamespace: SLASH,
-    scripts: scripts,
+    scripts,
     isStatic: true
   }
 }

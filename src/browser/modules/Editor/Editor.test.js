@@ -27,6 +27,7 @@ import {
   editContent,
   setContent
 } from 'shared/modules/editor/editorDuck'
+const mockTheme = { editModeButtonText: 'red', linkHover: 'red' }
 
 describe('<Editor /> ', () => {
   describe('Bus listener setup', () => {
@@ -45,7 +46,9 @@ describe('<Editor /> ', () => {
     it('should setup on mount', async () => {
       // Given bus is provided
       const bus = createBus()
-      const { findByText } = render(<Editor {...props} bus={bus} />)
+      const { findByText } = render(
+        <Editor {...props} bus={bus} theme={mockTheme} />
+      )
 
       // The SET_CONTENT action
       // When
@@ -78,7 +81,9 @@ describe('<Editor /> ', () => {
     it('should not setup listeners if not provided a bus', async () => {
       // Given no bus is provided
       const bus = createBus()
-      const { queryByText } = render(<Editor {...props} bus={null} />)
+      const { queryByText } = render(
+        <Editor {...props} bus={null} theme={mockTheme} />
+      )
 
       // The SET_CONTENT action
       // When

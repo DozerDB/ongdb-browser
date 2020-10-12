@@ -18,9 +18,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { withBus } from 'react-suber'
-import { fetchGuideFromWhitelistAction } from 'shared/modules/commands/commandsDuck'
+import { fetchGuideFromAllowlistAction } from 'shared/modules/commands/commandsDuck'
 
 import Docs from '../Docs/Docs'
 import docs from '../../documentation'
@@ -31,13 +31,12 @@ import {
   transformCommandToHelpTopic
 } from 'services/commandUtils'
 import { ErrorsView } from './CypherFrame/ErrorsView'
-import { useState } from 'react'
-import { useEffect } from 'react'
 import { CarouselButton } from 'browser-components/buttons/index'
 import {
   StackPreviousIcon,
   StackNextIcon
 } from 'browser-components/icons/Icons'
+import { splitMdxSlides } from '../Docs/MDX/splitMdx'
 
 const {
   play: { chapters }
@@ -55,6 +54,7 @@ export function PlayFrame({ stack, bus }) {
   const [atSlideStart, setAtSlideStart] = useState(null)
   const [atSlideEnd, setAtSlideEnd] = useState(null)
   const [guideObj, setGuideObj] = useState({})
+  const [initialPlay, setInitialPlay] = useState(true)
   const currentFrame = stack[stackIndex]
 
   const onSlide = ({ hasPrev, hasNext }) => {
@@ -64,11 +64,14 @@ export function PlayFrame({ stack, bus }) {
 
   useEffect(() => {
     async function generate() {
+      const shouldUseSlidePointer = initialPlay
       const { guide, aside, hasCarousel, isRemote } = await generateContent(
         currentFrame,
         bus,
-        onSlide
+        onSlide,
+        shouldUseSlidePointer
       )
+      setInitialPlay(false)
       setGuideObj({ guide, aside, hasCarousel, isRemote })
     }
     generate()
@@ -138,20 +141,40 @@ export function PlayFrame({ stack, bus }) {
   )
 }
 
-function generateContent(stackFrame, bus, onSlide) {
+function generateContent(stackFrame, bus, onSlide, shouldUseSlidePointer) {
   // Not found
   if (stackFrame.response && stackFrame.response.status === 404) {
     return unfound(stackFrame, chapters.unfound, onSlide)
   }
 
+  const initialSlide = shouldUseSlidePointer ? stackFrame.initialSlide || 1 : 1
+
   // Found a remote guide
   if (stackFrame.result) {
+    if (['md', 'mdx'].includes(stackFrame.filenameExtension)) {
+      return {
+        guide: (
+          <Docs
+            initialSlide={stackFrame.initialSlide || 1}
+            lastUpdate={stackFrame.ts}
+            mdx={stackFrame.result}
+            onSlide={onSlide}
+            originFrameId={stackFrame.id}
+            withDirectives
+          />
+        ),
+        hasCarousel: splitMdxSlides(stackFrame.result).length > 1,
+        isRemote: true
+      }
+    }
+
     return {
       guide: (
         <Docs
+          lastUpdate={stackFrame.ts}
           originFrameId={stackFrame.id}
           withDirectives
-          initialSlide={stackFrame.initialSlide || 1}
+          initialSlide={initialSlide}
           html={stackFrame.result}
           onSlide={onSlide}
         />
@@ -178,7 +201,7 @@ function generateContent(stackFrame, bus, onSlide) {
     }
   }
 
-  // Some other error. Whitelist error etc.
+  // Some other error. Allowlist error etc.
   if (stackFrame.error && stackFrame.error.error) {
     return {
       guide: (
@@ -194,7 +217,10 @@ function generateContent(stackFrame, bus, onSlide) {
   }
 
   // Local guides
-  const guideName = transformCommandToHelpTopic(stackFrame.cmd || 'start')
+  const guideName = transformCommandToHelpTopic(
+    stackFrame.cmd.trim() === ':play' ? ':play start' : stackFrame.cmd
+  )
+
   const guide = chapters[guideName] || {}
   // Check if content exists locally
   if (Object.keys(guide).length) {
@@ -202,10 +228,12 @@ function generateContent(stackFrame, bus, onSlide) {
     return {
       guide: (
         <Docs
+          lastUpdate={stackFrame.ts}
           originFrameId={stackFrame.id}
           withDirectives
           content={slides ? null : content}
           slides={slides ? slides : null}
+          initialSlide={initialSlide}
           onSlide={onSlide}
         />
       ),
@@ -217,10 +245,10 @@ function generateContent(stackFrame, bus, onSlide) {
     }
   }
 
-  // Check whitelisted remote URLs for name matches
+  // Check allowlisted remote URLs for name matches
   if (bus) {
     const topicInput = (splitStringOnFirst(stackFrame.cmd, ' ')[1] || '').trim()
-    const action = fetchGuideFromWhitelistAction(topicInput)
+    const action = fetchGuideFromAllowlistAction(topicInput)
     return new Promise(resolve => {
       bus.self(action.type, action, res => {
         if (!res.success) {
@@ -231,7 +259,9 @@ function generateContent(stackFrame, bus, onSlide) {
         return resolve({
           guide: (
             <Docs
+              lastUpdate={stackFrame.ts}
               originFrameId={stackFrame.id}
+              initialSlide={initialSlide}
               withDirectives
               html={res.result}
               onSlide={onSlide}
@@ -251,6 +281,7 @@ const unfound = (frame, { content, title, subtitle }, onSlide) => {
   return {
     guide: (
       <Docs
+        lastUpdate={frame.ts}
         originFrameId={frame.id}
         withDirectives
         content={content}

@@ -28,10 +28,11 @@ import { APP_START, URL_ARGUMENTS_CHANGE } from 'shared/modules/app/appDuck'
 import { executeCommand } from 'shared/modules/commands/commandsDuck'
 
 const NAME = 'editor'
-export const SET_CONTENT = NAME + '/SET_CONTENT'
-export const EDIT_CONTENT = NAME + '/EDIT_CONTENT'
+export const SET_CONTENT = `${NAME}/SET_CONTENT`
+export const EDIT_CONTENT = `${NAME}/EDIT_CONTENT`
 export const FOCUS = `${NAME}/FOCUS`
 export const EXPAND = `${NAME}/EXPAND`
+export const CARDSIZE = `${NAME}/CARDSIZE`
 export const NOT_SUPPORTED_URL_PARAM_COMMAND = `${NAME}/NOT_SUPPORTED_URL_PARAM_COMMAND`
 
 // Supported commands
@@ -46,10 +47,11 @@ export const setContent = newContent => ({
   type: SET_CONTENT,
   message: newContent
 })
-export const editContent = (id, message) => ({
+export const editContent = (id, message, isProjectFile) => ({
   type: EDIT_CONTENT,
   message,
-  id
+  id,
+  isProjectFile
 })
 
 export const populateEditorFromUrlEpic = (some$, store) => {

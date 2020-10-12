@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-import React, { useEffect } from 'react'
+import React, { useEffect, useCallback, useRef } from 'react'
 import { connect } from 'react-redux'
 import { withBus } from 'react-suber'
 import { ThemeProvider } from 'styled-components'
@@ -72,7 +72,7 @@ import { getMetadata, getUserAuthStatus } from 'shared/modules/sync/syncDuck'
 import ErrorBoundary from 'browser-components/ErrorBoundary'
 import { getExperimentalFeatures } from 'shared/modules/experimentalFeatures/experimentalFeaturesDuck'
 import FeatureToggleProvider from '../FeatureToggle/FeatureToggleProvider'
-import { inWebEnv } from 'shared/modules/app/appDuck'
+import { inWebEnv, URL_ARGUMENTS_CHANGE } from 'shared/modules/app/appDuck'
 import useDerivedTheme from 'browser-hooks/useDerivedTheme'
 import FileDrop from 'browser-components/FileDrop/FileDrop'
 import DesktopApi from 'browser-components/desktop-api/desktop-api'
@@ -80,6 +80,8 @@ import {
   buildConnectionCreds,
   getDesktopTheme
 } from 'browser-components/desktop-api/desktop-api.handlers'
+import { METRICS_EVENT } from 'shared/modules/udc/udcDuck'
+import { useKeyboardShortcuts } from './keyboardShortcuts'
 
 export function App(props) {
   const [derivedTheme, setEnvironmentTheme] = useDerivedTheme(
@@ -88,25 +90,20 @@ export function App(props) {
   )
   const themeData = themes[derivedTheme] || themes[LIGHT_THEME]
 
+  useKeyboardShortcuts(props.bus)
+
+  const eventMetricsCallback = useRef(() => {})
+
   useEffect(() => {
-    document.addEventListener('keyup', focusEditorOnSlash)
-    document.addEventListener('keyup', expandEditorOnEsc)
-
-    return () => {
-      document.removeEventListener('keyup', focusEditorOnSlash)
-      document.removeEventListener('keyup', expandEditorOnEsc)
-    }
+    const unsub =
+      props.bus &&
+      props.bus.take(METRICS_EVENT, ({ category, label, data }) => {
+        eventMetricsCallback &&
+          eventMetricsCallback.current &&
+          eventMetricsCallback.current({ category, label, data })
+      })
+    return () => unsub && unsub()
   }, [])
-
-  const focusEditorOnSlash = e => {
-    if (['INPUT', 'TEXTAREA'].indexOf(e.target.tagName) > -1) return
-    if (e.key !== '/') return
-    props.bus && props.bus.send(FOCUS)
-  }
-  const expandEditorOnEsc = e => {
-    if (e.keyCode !== 27) return
-    props.bus && props.bus.send(EXPAND)
-  }
 
   const {
     drawer,
@@ -134,6 +131,9 @@ export function App(props) {
   if (!codeFontLigatures) {
     wrapperClassNames.push('disable-font-ligatures')
   }
+  const setEventMetricsCallback = fn => {
+    eventMetricsCallback.current = fn
+  }
 
   return (
     <ErrorBoundary>
@@ -157,6 +157,10 @@ export function App(props) {
             .then(theme => setEnvironmentTheme(theme))
             .catch(setEnvironmentTheme(null))
         }
+        onArgumentsChange={argsString =>
+          props.bus.send(URL_ARGUMENTS_CHANGE, { url: `?${argsString}` })
+        }
+        setEventMetricsCallback={setEventMetricsCallback}
       />
       <ThemeProvider theme={themeData}>
         <FeatureToggleProvider features={experimentalFeatures}>
@@ -236,9 +240,4 @@ const mapDispatchToProps = dispatch => {
   }
 }
 
-export default withBus(
-  connect(
-    mapStateToProps,
-    mapDispatchToProps
-  )(App)
-)
+export default withBus(connect(mapStateToProps, mapDispatchToProps)(App))

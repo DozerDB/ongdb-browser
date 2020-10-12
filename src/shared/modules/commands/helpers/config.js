@@ -24,7 +24,7 @@ import {
   replace
 } from 'shared/modules/settings/settingsDuck'
 import { splitStringOnFirst } from 'services/commandUtils'
-import { getRemoteContentHostnameWhitelist } from 'shared/modules/dbMeta/dbMetaDuck'
+import { getRemoteContentHostnameAllowlist } from 'shared/modules/dbMeta/dbMetaDuck'
 import { hostIsAllowed } from 'services/utils'
 import { getJSON } from 'services/remote'
 import { isValidURL } from 'shared/modules/commands/helpers/http'
@@ -53,31 +53,30 @@ export function handleUpdateConfigCommand(action, cmdchar, put, store) {
         } catch (e) {
           return reject(
             new Error(
-              'Could not parse input. Usage: `:config {"x":1,"y":"string"}`. ' +
-                e
+              `Could not parse input. Usage: \`:config {"x":1,"y":"string"}\`. ${e}`
             )
           )
         }
       } else {
         // Single param
         try {
-          const json = '{' + param + '}'
+          const json = `{${param}}`
           const res = jsonic(json)
           put(update(res))
           return resolve(res)
         } catch (e) {
           return reject(
-            new Error('Could not parse input. Usage: `:config "x": 2`. ' + e)
+            new Error(`Could not parse input. Usage: \`:config "x": 2\`. ${e}`)
           )
         }
       }
     }
     // It's an URL
-    const whitelist = getRemoteContentHostnameWhitelist(store.getState())
-    if (!hostIsAllowed(param, whitelist)) {
+    const allowlist = getRemoteContentHostnameAllowlist(store.getState())
+    if (!hostIsAllowed(param, allowlist)) {
       // Make sure we're allowed to request entities on this host
       return reject(
-        new Error('Hostname is not allowed according to server whitelist')
+        new Error('Hostname is not allowed according to server allowlist')
       )
     }
     getJSON(param)

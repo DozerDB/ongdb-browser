@@ -18,6 +18,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import neo4j from 'neo4j-driver'
 import Rx from 'rxjs/Rx'
 import bolt from 'services/bolt/bolt'
 import { isConfigValFalsy } from 'services/bolt/boltHelpers'
@@ -33,8 +34,11 @@ import {
   setAuthEnabled,
   onLostConnection,
   getUseDb,
-  useDb
+  useDb,
+  getActiveConnectionData,
+  updateConnection
 } from 'shared/modules/connections/connectionsDuck'
+import { executeSingleCommand } from 'shared/modules/commands/commandsDuck'
 import { shouldUseCypherThread } from 'shared/modules/settings/settingsDuck'
 import { getBackgroundTxMetadata } from 'shared/services/bolt/txMetadata'
 import {
@@ -47,7 +51,9 @@ import {
   hasClientConfig,
   updateUserCapability,
   USER_CAPABILITIES,
-  FEATURE_DETECTION_DONE
+  FEATURE_DETECTION_DONE,
+  isACausalCluster,
+  setClientConfig
 } from '../features/featuresDuck'
 
 export const NAME = 'meta'
@@ -88,9 +94,11 @@ export const getVersion = state =>
 export const getEdition = state => state[NAME].server.edition
 export const getStoreSize = state => state[NAME].server.storeSize
 export const getClusterRole = state => state[NAME].role
-export const isEnterprise = state => state[NAME].server.edition === 'enterprise'
+export const isEnterprise = state =>
+  ['enterprise', 'auraenterprise'].includes(state[NAME].server.edition)
 export const isBeta = state => /-/.test(state[NAME].server.version)
-export const getStoreId = state => state[NAME].server.storeId
+export const getStoreId = state =>
+  state[NAME] && state[NAME].server ? state[NAME].server.storeId : null
 
 export const getAvailableSettings = state =>
   (state[NAME] || initialState).settings
@@ -98,11 +106,10 @@ export const allowOutgoingConnections = state =>
   getAvailableSettings(state)['browser.allow_outgoing_connections']
 export const credentialsTimeout = state =>
   getAvailableSettings(state)['browser.credential_timeout'] || 0
-export const getRemoteContentHostnameWhitelist = state =>
-  getAvailableSettings(state)['browser.remote_content_hostname_whitelist'] ||
-  initialState.settings['browser.remote_content_hostname_whitelist']
-export const getDefaultRemoteContentHostnameWhitelist = () =>
-  initialState.settings['browser.remote_content_hostname_whitelist']
+export const getRemoteContentHostnameAllowlist = state =>
+  getAvailableSettings(state)['browser.remote_content_hostname_allowlist']
+export const getDefaultRemoteContentHostnameAllowlist = state =>
+  initialState.settings['browser.remote_content_hostname_allowlist']
 export const shouldRetainConnectionCredentials = state => {
   const settings = getAvailableSettings(state)
   const conf = settings['browser.retain_connection_credentials']
@@ -132,7 +139,7 @@ function updateMetaForContext(state, meta, context) {
   const mapResult = (metaIndex, mapFunction) =>
     meta.records[metaIndex].get(0).data.map(mapFunction)
   const mapSingleValue = r => ({ val: r, context })
-  const mapInteger = r => (bolt.neo4j.isInt(r) ? r.toNumber() || 0 : r || 0)
+  const mapInteger = r => (neo4j.isInt(r) ? r.toNumber() || 0 : r || 0)
   const mapInvocableValue = r => {
     const { name, signature, description } = r
     return {
@@ -200,7 +207,7 @@ const initialState = {
   databases: [],
   settings: {
     'browser.allow_outgoing_connections': false,
-    'browser.remote_content_hostname_whitelist': 'guides.neo4j.com, localhost',
+    'browser.remote_content_hostname_allowlist': 'guides.neo4j.com, localhost',
     'browser.retain_connection_credentials': true
   }
 }
@@ -208,12 +215,28 @@ const initialState = {
 /**
  * Reducer
  */
-export default function meta(state = initialState, action) {
-  if (action.type === APP_START) {
-    state = { ...initialState, ...state }
+export default function meta(state = initialState, unalteredAction) {
+  let action = unalteredAction
+  if (unalteredAction && unalteredAction.settings) {
+    const allowlist =
+      unalteredAction.settings['browser.remote_content_hostname_allowlist'] ||
+      unalteredAction.settings['browser.remote_content_hostname_whitelist']
+
+    action = allowlist
+      ? {
+          ...unalteredAction,
+          settings: {
+            ...unalteredAction.settings,
+            ['browser.remote_content_hostname_allowlist']: allowlist
+          }
+        }
+      : unalteredAction
+    delete action.settings['browser.remote_content_hostname_whitelist']
   }
 
   switch (action.type) {
+    case APP_START:
+      return { ...initialState, ...state }
     case UPDATE:
       const { type, ...rest } = action // eslint-disable-line
       return { ...state, ...rest }
@@ -306,6 +329,153 @@ MATCH ()-[]->() RETURN { name:'relationships', data: count(*)} AS result
 export const serverInfoQuery =
   'CALL dbms.components() YIELD name, versions, edition'
 
+const databaseList = store =>
+  Rx.Observable.fromPromise(
+    new Promise(async (resolve, reject) => {
+      const supportsMultiDb = await bolt.hasMultiDbSupport()
+      if (!supportsMultiDb) {
+        return resolve(null)
+      }
+      bolt
+        .directTransaction(
+          'SHOW DATABASES',
+          {},
+          {
+            useCypherThread: shouldUseCypherThread(store.getState()),
+            ...getBackgroundTxMetadata({
+              hasServerSupport: canSendTxMetadata(store.getState())
+            }),
+            useDb: SYSTEM_DB
+          }
+        )
+        .then(resolve)
+        .catch(reject)
+    })
+  )
+    .catch(e => {
+      return Rx.Observable.of(null)
+    })
+    .do(res => {
+      if (!res) return Rx.Observable.of(null)
+      const databases = res.records.map(record => ({
+        ...reduce(
+          record.keys,
+          (agg, key) => assign(agg, { [key]: record.get(key) }),
+          {}
+        ),
+        status: record.get('currentStatus')
+      }))
+
+      store.dispatch(update({ databases }))
+
+      return Rx.Observable.of(null)
+    })
+
+const getLabelsAndTypes = store =>
+  Rx.Observable.of(null).mergeMap(() => {
+    const db = getUseDb(store.getState())
+
+    // System db, do nothing
+    if (db === SYSTEM_DB) {
+      store.dispatch(updateMeta([]))
+      return Rx.Observable.of(null)
+    }
+    // Not system db, try and fetch meta data
+    return Rx.Observable.fromPromise(
+      bolt.routedReadTransaction(
+        metaQuery,
+        {},
+        {
+          useCypherThread: shouldUseCypherThread(store.getState()),
+          onLostConnection: onLostConnection(store.dispatch),
+          ...getBackgroundTxMetadata({
+            hasServerSupport: canSendTxMetadata(store.getState())
+          })
+        }
+      )
+    )
+      .do(res => {
+        if (res) {
+          store.dispatch(updateMeta(res))
+        }
+        return Rx.Observable.of(null)
+      })
+      .catch(e => {
+        store.dispatch(updateMeta([]))
+        return Rx.Observable.of(null)
+      })
+  })
+
+const clusterRole = store =>
+  Rx.Observable.fromPromise(
+    new Promise((resolve, reject) => {
+      if (!isACausalCluster(store.getState())) {
+        return resolve(null)
+      }
+      bolt
+        .directTransaction(
+          getDbClusterRole(store.getState()),
+          {},
+          {
+            useCypherThread: shouldUseCypherThread(store.getState()),
+            ...getBackgroundTxMetadata({
+              hasServerSupport: canSendTxMetadata(store.getState())
+            })
+          }
+        )
+        .then(resolve)
+        .catch(reject)
+    })
+  )
+    .catch(e => {
+      return Rx.Observable.of(null)
+    })
+    .do(res => {
+      if (!res) return Rx.Observable.of(null)
+      const role = res.records[0].get(0)
+      store.dispatch(update({ role }))
+      return Rx.Observable.of(null)
+    })
+
+const switchToRequestedDb = store => {
+  if (getUseDb(store.getState())) return Rx.Observable.of(null)
+
+  const databases = getDatabases(store.getState())
+  const activeConnection = getActiveConnectionData(store.getState())
+  const requestedUseDb = activeConnection?.requestedUseDb
+
+  const useDefaultDb = () => {
+    const defaultDb = databases.find(db => db.default)
+    if (defaultDb) {
+      store.dispatch(useDb(defaultDb.name))
+    }
+  }
+
+  if (requestedUseDb) {
+    const wantedDb = databases.find(
+      ({ name }) => name.toLowerCase() === requestedUseDb.toLowerCase()
+    )
+    store.dispatch(
+      updateConnection({
+        id: activeConnection.id,
+        requestedUseDb: ''
+      })
+    )
+    if (wantedDb) {
+      store.dispatch(useDb(wantedDb.name))
+      // update labels and such for new db
+      return getLabelsAndTypes(store)
+    } else {
+      // this will show the db not found frame
+      store.dispatch(executeSingleCommand(`:use ${requestedUseDb}`))
+      useDefaultDb()
+    }
+  } else {
+    useDefaultDb()
+  }
+  return Rx.Observable.of(null)
+}
+
 export const dbMetaEpic = (some$, store) =>
   some$
     .ofType(UPDATE_CONNECTION_STATE)
@@ -319,122 +489,20 @@ export const dbMetaEpic = (some$, store) =>
           .throttle(() => some$.ofType(DB_META_DONE))
           // Server version and edition
           .do(store.dispatch({ type: FETCH_SERVER_INFO }))
-          .mergeMap(() =>
-            Rx.Observable.forkJoin([
-              // Labels, types and propertyKeys, and server version
-              Rx.Observable.of(null).mergeMap(() => {
-                const db = getUseDb(store.getState())
-
-                // System db, do nothing
-                if (db === SYSTEM_DB) {
-                  store.dispatch(updateMeta([]))
-                  return Rx.Observable.of(null)
-                }
-
-                // Not system db, try and fetch meta data
-                return Rx.Observable.fromPromise(
-                  bolt.routedReadTransaction(
-                    metaQuery,
-                    {},
-                    {
-                      useCypherThread: shouldUseCypherThread(store.getState()),
-                      onLostConnection: onLostConnection(store.dispatch),
-                      ...getBackgroundTxMetadata({
-                        hasServerSupport: canSendTxMetadata(store.getState())
-                      })
-                    }
-                  )
-                )
-                  .do(res => {
-                    if (res) {
-                      store.dispatch(updateMeta(res))
-                    }
-                  })
-                  .catch(e => {
-                    store.dispatch(updateMeta([]))
-                    return Rx.Observable.of(null)
-                  })
-              }),
-              // Cluster role
-              Rx.Observable.fromPromise(
-                bolt.directTransaction(
-                  getDbClusterRole(store.getState()),
-                  {},
-                  {
-                    useCypherThread: shouldUseCypherThread(store.getState()),
-                    ...getBackgroundTxMetadata({
-                      hasServerSupport: canSendTxMetadata(store.getState())
-                    })
-                  }
-                )
-              )
-                .catch(e => {
-                  return Rx.Observable.of(null)
-                })
-                .do(res => {
-                  if (!res) return Rx.Observable.of(null)
-                  const role = res.records[0].get(0)
-                  store.dispatch(update({ role }))
-                  return Rx.Observable.of(null)
-                }),
-              // Database list
-              Rx.Observable.fromPromise(
-                new Promise(async (resolve, reject) => {
-                  const supportsMultiDb = await bolt.hasMultiDbSupport()
-                  if (!supportsMultiDb) {
-                    return resolve(null)
-                  }
-                  bolt
-                    .directTransaction(
-                      'SHOW DATABASES',
-                      {},
-                      {
-                        useCypherThread: shouldUseCypherThread(
-                          store.getState()
-                        ),
-                        ...getBackgroundTxMetadata({
-                          hasServerSupport: canSendTxMetadata(store.getState())
-                        }),
-                        useDb: SYSTEM_DB // System db
-                      }
-                    )
-                    .then(resolve)
-                    .catch(reject)
-                })
-              )
-                .catch(e => {
-                  return Rx.Observable.of(null)
-                })
-                .do(res => {
-                  if (!res) return Rx.Observable.of(null)
-                  const databases = res.records.map(record => ({
-                    ...reduce(
-                      record.keys,
-                      (agg, key) => assign(agg, { [key]: record.get(key) }),
-                      {}
-                    ),
-                    status: record.get('currentStatus')
-                  }))
-
-                  store.dispatch(update({ databases }))
-
-                  // Currently not using a db
-                  if (!getUseDb(store.getState())) {
-                    const defaultDb = databases.filter(db => db.default)
-                    if (defaultDb.length) {
-                      store.dispatch(useDb(defaultDb[0].name))
-                    }
-                  }
-                  return Rx.Observable.of(null)
-                })
+          .mergeMap(() => {
+            return Rx.Observable.forkJoin([
+              getLabelsAndTypes(store),
+              clusterRole(store),
+              databaseList(store)
             ])
-          )
+          })
           .takeUntil(
             some$
               .ofType(LOST_CONNECTION)
               .filter(connectionLossFilter)
               .merge(some$.ofType(DISCONNECTION_SUCCESS))
           )
+          .mergeMap(() => switchToRequestedDb(store))
           .mapTo({ type: DB_META_DONE })
       )
     })
@@ -451,11 +519,10 @@ export const serverConfigEpic = (some$, store) =>
           bolt
             .directTransaction(
               `CALL ${
-                hasClientConfig(store.getState())
+                hasClientConfig(store.getState()) !== false
                   ? 'dbms.clientConfig()'
                   : 'dbms.listConfig()'
               }`,
-
               {},
               {
                 useDb: supportsMultiDb ? SYSTEM_DB : '',
@@ -465,8 +532,37 @@ export const serverConfigEpic = (some$, store) =>
                 })
               }
             )
-            .then(resolve)
-            .catch(reject)
+            .then(r => {
+              // This is not set yet
+              if (hasClientConfig(store.getState()) === null) {
+                store.dispatch(setClientConfig(true))
+              }
+              resolve(r)
+            })
+            .catch(e => {
+              // Try older procedure if the new one doesn't exist
+              if (e.code === 'Neo.ClientError.Procedure.ProcedureNotFound') {
+                // Store that dbms.clientConfig isn't available
+                store.dispatch(setClientConfig(false))
+
+                bolt
+                  .directTransaction(
+                    `CALL dbms.listConfig()`,
+                    {},
+                    {
+                      useDb: supportsMultiDb ? SYSTEM_DB : '',
+                      useCypherThread: shouldUseCypherThread(store.getState()),
+                      ...getBackgroundTxMetadata({
+                        hasServerSupport: canSendTxMetadata(store.getState())
+                      })
+                    }
+                  )
+                  .then(resolve)
+                  .catch(reject)
+              } else {
+                reject(e)
+              }
+            })
         })
       )
         .catch(e => {

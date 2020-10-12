@@ -25,9 +25,10 @@ export const StyledStream = styled.div`
   padding: 0;
   display: flex;
   flex-direction: column;
-  margin-top: 17px;
   overflow: auto;
-  padding: 0px 24px 100px 24px;
+`
+export const Padding = styled.div`
+  padding-top: 100px;
 `
 
 // Frames
@@ -177,6 +178,9 @@ export const StyledStatsBar = styled.div`
   padding-left: 24px;
   width: 100%;
 `
+export const StyledTruncatedMessage = styled.span`
+  color: orange;
+`
 
 export const StyledOneRowStatsBar = styled(StyledStatsBar)`
   height: 39px;
@@ -200,7 +204,6 @@ export const SpinnerContainer = styled.div`
 export const DropdownButton = styled.li`
   color: ${props => props.theme.secondaryButtonText};
   background-color: transparent;
-  border-left: ${props => props.theme.inFrameBorder};
   height: ${dim.frameTitlebarHeight}px;
   width: 41px;
   cursor: pointer;
@@ -348,6 +351,7 @@ export const StyledAlteringTr = styled.tr`
 
 export const StyledStrongTd = styled.td`
   font-weight: bold;
+  padding-left: 4px;
 `
 
 export const StyledTd = styled.td``

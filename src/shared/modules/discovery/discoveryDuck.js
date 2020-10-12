@@ -25,11 +25,14 @@ import {
   APP_START,
   USER_CLEAR,
   hasDiscoveryEndpoint,
-  getHostedUrl
+  getHostedUrl,
+  getAllowedBoltSchemes
 } from 'shared/modules/app/appDuck'
 import { getDiscoveryEndpoint } from 'services/bolt/boltHelpers'
 import { getUrlParamValue } from 'services/utils'
+import { generateBoltUrl } from 'services/boltscheme.utils'
 import { getUrlInfo } from 'shared/services/utils'
+import { CLOUD, getEnv } from 'shared/modules/app/appDuck'
 
 export const NAME = 'discover-bolt-host'
 export const CONNECTION_ID = '$$discovery'
@@ -42,13 +45,14 @@ export const INJECTED_DISCOVERY = `${NAME}/INJECTED_DISCOVERY`
 
 // Reducer
 export default function reducer(state = initialState, action = {}) {
-  if (action.type === APP_START) {
-    state = { ...initialState, ...state }
-  }
-
   switch (action.type) {
+    case APP_START:
+      return { ...initialState, ...state }
     case SET:
-      return Object.assign({}, state, { boltHost: action.boltHost })
+      return {
+        ...state,
+        boltHost: action.boltHost
+      }
     default:
       return state
   }
@@ -76,15 +80,21 @@ export const getBoltHost = state => {
 }
 
 const updateDiscoveryState = (action, store) => {
-  const updateObj = { host: action.forceURL }
-  if (action.username && action.password) {
-    updateObj.username = action.username
-    updateObj.password = action.password
-  }
+  const keysToCopy = [
+    'username',
+    'password',
+    'requestedUseDb',
+    'restApi',
+    'supportsMultiDb'
+  ]
+  const updateObj = keysToCopy.reduce(
+    (accObj, key) => (action[key] ? { ...accObj, [key]: action[key] } : accObj),
+    { host: action.forceURL }
+  )
+
   if (typeof action.encrypted !== 'undefined') {
     updateObj.encrypted = action.encrypted
   }
-  updateObj.restApi = action.restApi
 
   const updateAction = updateDiscoveryConnection(updateObj)
   store.dispatch(updateAction)
@@ -93,9 +103,13 @@ const updateDiscoveryState = (action, store) => {
 export const injectDiscoveryEpic = (action$, store) =>
   action$
     .ofType(INJECTED_DISCOVERY)
-    .map(action =>
-      updateDiscoveryState({ ...action, forceURL: action.host }, store)
-    )
+    .map(action => {
+      const connectUrl = generateBoltUrl(
+        getAllowedBoltSchemes(store.getState(), action.encrypted),
+        action.host
+      )
+      return updateDiscoveryState({ ...action, forceURL: connectUrl }, store)
+    })
     .mapTo({ type: DONE })
 
 export const discoveryOnStartupEpic = (some$, store) => {
@@ -103,9 +117,15 @@ export const discoveryOnStartupEpic = (some$, store) => {
     .ofType(APP_START)
     .map(action => {
       if (!action.url) return action
-      const passedURL = getUrlParamValue('connectURL', action.url)
+      const passedURL =
+        getUrlParamValue('dbms', action.url) ||
+        getUrlParamValue('connectURL', action.url)
+
+      const passedDb = getUrlParamValue('db', action.url)
+
       if (!passedURL || !passedURL.length) return action
       action.forceURL = decodeURIComponent(passedURL[0])
+      action.requestedUseDb = passedDb && passedDb[0]
       return action
     })
     .merge(some$.ofType(USER_CLEAR))
@@ -115,15 +135,13 @@ export const discoveryOnStartupEpic = (some$, store) => {
         return Promise.resolve({ type: 'NOOP' })
       }
       if (action.forceURL) {
-        const { username, password, protocol, host } = getUrlInfo(
-          action.forceURL
-        )
+        const { username, protocol, host } = getUrlInfo(action.forceURL)
         updateDiscoveryState(
           {
             ...action,
             username,
-            password,
-            forceURL: `${protocol ? protocol + '//' : ''}${host}`
+            supportsMultiDb: !!action.requestedUseDb,
+            forceURL: `${protocol ? `${protocol}//` : ''}${host}`
           },
           store
         )
@@ -134,20 +152,31 @@ export const discoveryOnStartupEpic = (some$, store) => {
           .getJSON(getDiscoveryEndpoint(getHostedUrl(store.getState())))
           // Uncomment below and comment out above when doing manual tests in dev mode to
           // fake discovery response
-          // Promise.resolve({ bolt: 'bolt+routing://localhost:7687' })
+          //Promise.resolve({
+          // bolt: 'bolt://localhost:7687',
+          //neo4j_version: '4.0.3'
+          //})
           .then(result => {
-            const host =
+            let host =
               result &&
               (result.bolt_routing || result.bolt_direct || result.bolt)
             // Try to get info from server
             if (!host) {
-              throw new Error('No bolt address found') // No bolt info from server, throw
+              throw new Error('No bolt address found')
             }
-            store.dispatch(updateDiscoveryConnection({ host })) // Update discovery host in redux
+            host = generateBoltUrl(
+              getAllowedBoltSchemes(store.getState()),
+              host
+            )
+
+            const isAura = getEnv(store.getState()) === CLOUD
+            const supportsMultiDb =
+              !isAura && parseInt((result.neo4j_version || '0').charAt(0)) >= 4
+            store.dispatch(updateDiscoveryConnection({ host, supportsMultiDb })) // Update discovery host in redux
             return { type: DONE }
           })
           .catch(e => {
-            throw new Error('No info from endpoint') // No info from server, throw
+            throw new Error('No info from endpoint')
           })
       ).catch(e => {
         return Promise.resolve({ type: DONE })

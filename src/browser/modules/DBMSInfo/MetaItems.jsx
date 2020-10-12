@@ -19,7 +19,6 @@
  */
 import React from 'react'
 import { escapeCypherIdentifier } from 'services/utils'
-import classNames from 'classnames'
 import styles from './style_meta.css'
 import {
   DrawerSubHeader,
@@ -35,13 +34,10 @@ import {
 } from './styled'
 import Render from 'browser-components/Render'
 import numberToUSLocale from 'shared/utils/number-to-US-locale'
+import neoGraphStyle from 'browser/modules/D3Visualization/graphStyle'
+import deepmerge from 'deepmerge'
 
-const wrapperStyleObj =
-  styles && styles.wrapper
-    ? {
-        [styles.wrapper]: true
-      }
-    : {}
+const wrapperStyle = (styles && styles.wrapper) || ''
 
 const ShowMore = ({ total, shown, moreStep, onMore }) => {
   const numMore = total - shown > moreStep ? moreStep : total - shown
@@ -66,7 +62,8 @@ const createItems = (
   RenderType,
   editorCommandTemplate,
   showStar = true,
-  count
+  count,
+  graphStyleData
 ) => {
   const items = [...originalList]
   if (showStar) {
@@ -76,26 +73,44 @@ const createItems = (
     }
     items.unshift(str)
   }
+  const graphStyle = neoGraphStyle()
+  if (graphStyleData) {
+    graphStyle.loadRules(deepmerge(graphStyle.toSheet(), graphStyleData || {}))
+  }
+
   return items.map((text, index) => {
+    let style = {}
+    if (graphStyleData) {
+      const styleForItem = graphStyle.forNode({
+        labels: [text]
+      })
+      style = {
+        backgroundColor: styleForItem.get('color'),
+        color: styleForItem.get('text-color-internal')
+      }
+    }
     const getNodesCypher = editorCommandTemplate(text, index)
     return (
       <RenderType.component
         data-testid="sidebarMetaItem"
         key={index}
         onClick={() => onItemClick(getNodesCypher)}
+        style={style}
       >
         {text}
       </RenderType.component>
     )
   })
 }
+
 const LabelItems = ({
   labels = [],
   totalNumItems,
   onItemClick,
   moreStep,
   onMoreClick,
-  count
+  count,
+  graphStyleData
 }) => {
   let labelItems = <p>There are no labels in database</p>
   if (labels.length) {
@@ -111,13 +126,14 @@ const LabelItems = ({
       { component: StyledLabel },
       editorCommandTemplate,
       true,
-      count
+      count,
+      graphStyleData
     )
   }
   return (
     <DrawerSection>
       <DrawerSubHeader>Node Labels</DrawerSubHeader>
-      <DrawerSectionBody className={classNames(wrapperStyleObj)}>
+      <DrawerSectionBody className={wrapperStyle}>
         {labelItems}
       </DrawerSectionBody>
       <ShowMore
@@ -159,7 +175,7 @@ const RelationshipItems = ({
   return (
     <DrawerSection>
       <DrawerSubHeader>Relationship Types</DrawerSubHeader>
-      <DrawerSectionBody className={classNames(wrapperStyleObj)}>
+      <DrawerSectionBody className={wrapperStyle}>
         {relationshipItems}
       </DrawerSectionBody>
       <ShowMore
@@ -204,7 +220,7 @@ const PropertyItems = ({
   return (
     <DrawerSection>
       <DrawerSubHeader>Property Keys</DrawerSubHeader>
-      <DrawerSectionBody className={classNames(wrapperStyleObj)}>
+      <DrawerSectionBody className={wrapperStyle}>
         {propertyItems}
       </DrawerSectionBody>
       <ShowMore

@@ -47,10 +47,11 @@ export const Banner = styled.div`
   min-height: 49px;
   color: white;
   padding: 0 24px;
-  margin: 0 24px;
   overflow: hidden;
   animation: ${grow('49px')} 0.3s ease-in;
   flex: 0 0 49px;
+  box-shadow: 0px 0px 2px rgba(52, 58, 67, 0.1),
+    0px 1px 2px rgba(52, 58, 67, 0.08), 0px 1px 4px rgba(52, 58, 67, 0.08);
 `
 
 export const ErrorBanner = styled(Banner)`

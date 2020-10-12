@@ -20,7 +20,6 @@
 
 import React from 'react'
 import ManualLink from 'browser-components/ManualLink'
-import Carousel from '../../modules/Carousel/Carousel'
 import Slide from '../../modules/Carousel/Slide'
 
 const title = 'Movie Graph'
@@ -540,7 +539,7 @@ CREATE
 (PhilipH)-[:ACTED_IN {roles:['Gust Avrakotos']}]->(CharlieWilsonsWar),
 (MikeN)-[:DIRECTED]->(CharlieWilsonsWar)
 
-CREATE (ThePolarExpress:Movie {title:'The Polar Express', released:2004, tagline:'This Holiday Season… Believe'})
+CREATE (ThePolarExpress:Movie {title:'The Polar Express', released:2004, tagline:'This Holiday Season... Believe'})
 CREATE
 (TomH)-[:ACTED_IN {roles:['Hero Boy', 'Father', 'Conductor', 'Hobo', 'Scrooge', 'Santa Claus']}]->(ThePolarExpress),
 (RobertZ)-[:DIRECTED]->(ThePolarExpress)
@@ -825,7 +824,11 @@ RETURN tom, m, coActors, m2, cruise`}
       <h3>Reference</h3>
       <ul className="undecorated">
         <li>
-          <a target="_blank" href="https://neo4j.com/developer/">
+          <a
+            target="_blank"
+            rel="noreferrer"
+            href="https://neo4j.com/developer/"
+          >
             Developer resources
           </a>
         </li>

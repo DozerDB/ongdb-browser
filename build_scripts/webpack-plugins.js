@@ -27,7 +27,10 @@ const { CleanWebpackPlugin } = require('clean-webpack-plugin')
 const MiniCssExtractPlugin = require('mini-css-extract-plugin')
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer')
   .BundleAnalyzerPlugin
+const ForkTsCheckerNotifierWebpackPlugin = require('fork-ts-checker-notifier-webpack-plugin')
+const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin')
 const manifestGeneration = require('./generate-manifest-helpers')
+const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin')
 
 module.exports = () => {
   const plugins = [
@@ -36,32 +39,34 @@ module.exports = () => {
         NODE_ENV: JSON.stringify(helpers.nodeEnv)
       }
     }),
-    new CopyWebpackPlugin([
-      {
-        // Copy manifest-base file and pick wanted data from package.json
-        // and merge them into the manifest.json output file
-        from: path.resolve(helpers.browserPath, 'manifest-base.json'),
-        to: path.resolve(helpers.buildPath, 'manifest.json'),
-        transform: content => {
-          const packageJsonData = manifestGeneration.loadDataFromFile(
-            path.join(helpers.projectPath, 'package.json')
-          )
-          const wantedData = manifestGeneration.buildTargetObject(
-            packageJsonData,
-            'propertiesToCopyToManifest'
-          )
-          const mergedData = manifestGeneration.mergeObjects(
-            wantedData,
-            JSON.parse(content)
-          )
-          return JSON.stringify(mergedData, null, 2)
+    new CopyWebpackPlugin({
+      patterns: [
+        {
+          // Copy manifest-base file and pick wanted data from package.json
+          // and merge them into the manifest.json output file
+          from: path.resolve(helpers.browserPath, 'manifest-base.json'),
+          to: path.resolve(helpers.buildPath, 'manifest.json'),
+          transform: content => {
+            const packageJsonData = manifestGeneration.loadDataFromFile(
+              path.join(helpers.projectPath, 'package.json')
+            )
+            const wantedData = manifestGeneration.buildTargetObject(
+              packageJsonData,
+              'propertiesToCopyToManifest'
+            )
+            const mergedData = manifestGeneration.mergeObjects(
+              wantedData,
+              JSON.parse(content)
+            )
+            return JSON.stringify(mergedData, null, 2)
+          }
+        },
+        {
+          from: path.resolve(helpers.browserPath, 'images'),
+          to: helpers.assetsPath + '/images'
         }
-      },
-      {
-        from: path.resolve(helpers.browserPath, 'images'),
-        to: helpers.assetsPath + '/images'
-      }
-    ]),
+      ]
+    }),
     new MiniCssExtractPlugin({
       // Options similar to the same options in webpackOptions.output
       // both options are optional
@@ -77,11 +82,21 @@ module.exports = () => {
       analyzerMode: 'static',
       openAnalyzer: false,
       reportFilename: './../bundle-report.html'
+    }),
+    new ForkTsCheckerWebpackPlugin({
+      eslint: {
+        files: './src/**/*.{ts,tsx,js,jsx}'
+      }
+    }),
+    new ForkTsCheckerNotifierWebpackPlugin({
+      title: 'TypeScript',
+      excludeWarnings: false
     })
   ]
 
   if (!helpers.isProduction) {
     plugins.push(new webpack.HotModuleReplacementPlugin())
+    plugins.push(new ReactRefreshWebpackPlugin())
   }
   if (helpers.isProduction) {
     plugins.unshift(new CleanWebpackPlugin())

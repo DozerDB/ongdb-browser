@@ -38,7 +38,11 @@ export const DocumentItems = ({ header, items, onItemClick = null }) => {
       case 'link':
         return (
           <StyledHelpItem key={item.command}>
-            <StyledHelpLink href={item.command} target="_blank">
+            <StyledHelpLink
+              href={item.command}
+              target="_blank"
+              rel="noreferrer"
+            >
               {item.name}
             </StyledHelpLink>
           </StyledHelpItem>
@@ -64,7 +68,7 @@ export const DocumentItems = ({ header, items, onItemClick = null }) => {
   )
 }
 
-const mapDispatchToProps = (dispatch, ownProps) => {
+const mapDispatchToProps = (_dispatch, ownProps) => {
   return {
     onItemClick: cmd => {
       ownProps.bus.send(SET_CONTENT, setContent(cmd))

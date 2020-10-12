@@ -18,10 +18,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* eslint-disable no-octal-escape */
 import React, { Component } from 'react'
 import { connect } from 'react-redux'
 import { withBus } from 'react-suber'
+import { withTheme } from 'styled-components'
 import uuid from 'uuid'
 import {
   executeCommand,
@@ -39,10 +39,11 @@ import { getHistory } from 'shared/modules/history/historyDuck'
 import {
   getCmdChar,
   shouldEditorAutocomplete,
-  shouldEditorLint
+  shouldEditorLint,
+  shouldEnableMultiStatementMode
 } from 'shared/modules/settings/settingsDuck'
-import { Bar, ActionButtonSection, EditorWrapper } from './styled'
-import { EditorButton, EditModeEditorButton } from 'browser-components/buttons'
+import { add } from 'shared/modules/stream/streamDuck'
+import { Bar, ActionButtonSection, EditorWrapper, Header } from './styled'
 import { CYPHER_REQUEST } from 'shared/modules/cypher/cypherDuck'
 import { deepEquals, shallowEquals } from 'services/utils'
 import * as viewTypes from 'shared/modules/stream/frameViewTypes'
@@ -50,13 +51,14 @@ import Codemirror from './Codemirror'
 import * as schemaConvert from './editorSchemaConverter'
 import cypherFunctions from './cypher/functions'
 import Render from 'browser-components/Render'
-
 import ratingStar from 'icons/rating-star.svg'
 import controlsPlay from 'icons/controls-play.svg'
 import eraser2 from 'icons/eraser-2.svg'
 import pencil from 'icons/pencil.svg'
 import { NEO4J_BROWSER_USER_ACTION_QUERY } from 'services/bolt/txMetadata'
 import { getUseDb } from 'shared/modules/connections/connectionsDuck'
+import ActionButtons from './ActionButtons'
+import { isMac } from 'browser/modules/App/keyboardShortcuts'
 
 const shouldCheckForHints = code =>
   code.trim().length > 0 &&
@@ -78,34 +80,32 @@ export class Editor extends Component {
       buffer: '',
       mode: 'cypher',
       notifications: [],
-      expanded: false,
       lastPosition: { line: 0, column: 0 },
-      contentId: null,
-      editorHeight: 0
+      contentId: null
     }
-
     if (this.props.bus) {
       this.props.bus.take(SET_CONTENT, msg => {
         this.setContentId(null)
         this.setEditorValue(msg.message)
       })
       this.props.bus.take(EDIT_CONTENT, msg => {
-        this.setContentId(msg.id)
+        if (!msg.isProjectFile) {
+          this.setContentId(msg.id)
+        }
         this.setEditorValue(msg.message)
       })
       this.props.bus.take(FOCUS, this.focusEditor.bind(this))
-      this.props.bus.take(EXPAND, this.expandEditorToggle.bind(this))
     }
   }
 
   shouldComponentUpdate(nextProps, nextState) {
     return !(
-      nextState.expanded === this.state.expanded &&
       nextState.contentId === this.state.contentId &&
-      nextState.editorHeight === this.state.editorHeight &&
       shallowEquals(nextState.notifications, this.state.notifications) &&
       deepEquals(nextProps.schema, this.props.schema) &&
-      nextProps.useDb === this.props.useDb
+      nextProps.editorSize === this.props.editorSize &&
+      nextProps.useDb === this.props.useDb &&
+      nextProps.enableMultiStatementMode === this.props.enableMultiStatementMode
     )
   }
 
@@ -114,20 +114,18 @@ export class Editor extends Component {
     this.codeMirror.setCursor(this.codeMirror.lineCount(), 0)
   }
 
-  expandEditorToggle() {
-    this.setState({ expanded: !this.state.expanded })
-  }
-
-  clearEditor() {
+  clearEditor = () => {
     this.setEditorValue('')
     this.setContentId(null)
   }
 
   handleEnter(cm) {
-    if (cm.lineCount() === 1) {
-      return this.execCurrent(cm)
+    const multiline = this.props.editorSize !== 'LINE'
+    if (multiline) {
+      this.newlineAndIndent(cm)
+    } else {
+      this.execCurrent()
     }
-    this.newlineAndIndent(cm)
   }
 
   newlineAndIndent(cm) {
@@ -138,15 +136,20 @@ export class Editor extends Component {
     this.props.onExecute(cmd)
   }
 
-  execCurrent() {
-    this.execCommand(this.getEditorValue())
-    this.clearEditor()
-    this.setState({
-      notifications: [],
-      historyIndex: -1,
-      buffer: null,
-      expanded: false
-    })
+  execCurrent = () => {
+    const cmd = this.getEditorValue()
+    const onlyWhitespace = cmd.trim() === ''
+
+    if (!onlyWhitespace) {
+      this.execCommand(cmd)
+      this.clearEditor()
+      this.setState({
+        notifications: [],
+        historyIndex: -1,
+        buffer: null
+      })
+      this.props.setSize('LINE')
+    }
   }
 
   moveCursorToEndOfLine(cm) {
@@ -230,6 +233,10 @@ export class Editor extends Component {
     this.loadCodeMirror()
   }
 
+  componentWillUnmount() {
+    clearInterval(this.codeMirror.display.blinker)
+  }
+
   loadCodeMirror = () => {
     if (this.codeMirror) {
       return
@@ -246,6 +253,9 @@ export class Editor extends Component {
         console.log(e)
       }
     })
+    if (this.props.editorRef) {
+      this.props.editorRef.current = this.codeMirror
+    }
   }
 
   getEditorValue() {
@@ -253,6 +263,9 @@ export class Editor extends Component {
   }
 
   setEditorValue(cmd) {
+    if (!cmd.includes('\n') && this.props.editorSize === 'CARD') {
+      this.props.setSize('LINE')
+    }
     this.codeMirror.setValue(cmd)
     this.updateCode(undefined, undefined, () => {
       this.focusEditor()
@@ -263,14 +276,57 @@ export class Editor extends Component {
     this.setState({ contentId: id })
   }
 
+  componentDidUpdate(prevProps) {
+    if (
+      prevProps.enableMultiStatementMode !== this.props.enableMultiStatementMode
+    ) {
+      // Set value to current value to trigger warning checks
+      this.setEditorValue(this.getEditorValue())
+    }
+  }
+
+  checkForMultiStatementWarnings(statements) {
+    if (statements.length > 1 && !this.props.enableMultiStatementMode) {
+      const { offset, line, column } = statements[1].start
+      const message =
+        'To use multi statement queries, please enable multi statement in the settings panel.'
+      this.setState({
+        notifications: [
+          {
+            code: 'frontendWarning',
+            description: message,
+            position: {
+              offset,
+              line,
+              column
+            },
+            severity: 'WARNING',
+            errors: {
+              message
+            },
+            title: 'Multi Statement Query'
+          }
+        ]
+      })
+    } else {
+      this.setState({ notifications: [] })
+    }
+  }
+
   updateCode = (statements, change, cb = () => {}) => {
-    if (statements) this.checkForHints(statements)
+    if (statements) {
+      this.checkForHints(statements)
+      this.checkForMultiStatementWarnings(statements)
+    }
+
     const lastPosition = change && change.to
     this.setState(
       {
-        notifications: [],
         lastPosition: lastPosition
-          ? { line: lastPosition.line, column: lastPosition.ch }
+          ? {
+              line: lastPosition.line,
+              column: lastPosition.ch
+            }
           : this.state.lastPosition
       },
       cb
@@ -300,7 +356,10 @@ export class Editor extends Component {
               const notifications = response.result.summary.notifications.map(
                 n => ({
                   ...n,
-                  position: { ...n.position, line: n.position.line + offset },
+                  position: {
+                    ...n.position,
+                    line: n.position.line + offset
+                  },
                   statement: response.result.summary.query.text
                 })
               )
@@ -328,8 +387,13 @@ export class Editor extends Component {
               '<i class="fa fa-exclamation-triangle gutter-warning gutter-warning" aria-hidden="true"></i>'
             gutter.title = `${notification.title}\n${notification.description}`
             gutter.onclick = () => {
-              const action = executeSystemCommand(notification.statement)
-              action.forceView = viewTypes.WARNINGS
+              const action =
+                notification.code === 'frontendWarning'
+                  ? add(notification)
+                  : {
+                      ...executeSystemCommand(notification.statement),
+                      forceView: viewTypes.WARNINGS
+                    }
               this.props.bus.send(action.type, action)
             }
             return gutter
@@ -340,20 +404,27 @@ export class Editor extends Component {
   }
 
   lineNumberFormatter = line => {
-    const useDbString = this.props.useDb || ''
-    if (!this.codeMirror || this.codeMirror.lineCount() === 1) {
-      return `${useDbString}$`
-    } else {
+    const multiline = this.props.editorSize !== 'LINE'
+    if (multiline) {
       return line
+    } else {
+      return `${this.props.useDb || ''}$`
     }
   }
 
-  updateHeight = () => {
-    if (this.editor) {
-      const editorHeight = this.editor.editorReference.clientHeight
-      if (editorHeight !== this.state.editorHeight) {
-        this.setState({ editorHeight })
-      }
+  updateSize = () => {
+    const isLineSize = this.props.editorSize === 'LINE'
+    const hasOverflow =
+      this.codeMirror && this.codeMirror.getValue().includes('\n')
+    if (isLineSize && hasOverflow) {
+      this.props.setSize('CARD')
+    }
+  }
+
+  goToCard(cm) {
+    this.newlineAndIndent(cm)
+    if (this.props.editorSize === 'LINE') {
+      this.props.setSize('CARD')
     }
   }
 
@@ -363,7 +434,7 @@ export class Editor extends Component {
       mode: this.state.mode,
       theme: 'cypher',
       gutters: ['cypher-hints'],
-      lineWrapping: true,
+      lineWrapping: false,
       autofocus: true,
       smartIndent: false,
       lineNumberFormatter: this.lineNumberFormatter,
@@ -371,7 +442,7 @@ export class Editor extends Component {
       extraKeys: {
         'Ctrl-Space': 'autocomplete',
         Enter: this.handleEnter.bind(this),
-        'Shift-Enter': this.newlineAndIndent.bind(this),
+        'Shift-Enter': this.goToCard.bind(this),
         'Cmd-Enter': this.execCurrent.bind(this),
         'Ctrl-Enter': this.execCurrent.bind(this),
         'Cmd-Up': this.historyPrev.bind(this),
@@ -399,64 +470,56 @@ export class Editor extends Component {
 
     this.setGutterMarkers()
 
+    const editorIsEmpty = this.getEditorValue().length > 0
+    const buttons = [
+      {
+        onClick: this.state.contentId
+          ? () =>
+              this.props.onFavoriteUpdateClick(
+                this.state.contentId,
+                this.getEditorValue()
+              )
+          : () => {
+              this.props.onFavoriteClick(this.getEditorValue())
+            },
+        icon: this.state.contentId ? pencil : ratingStar,
+        title: this.state.contentId ? 'Update favorite' : 'Favorite',
+        disabled: editorIsEmpty
+      },
+      {
+        onClick: this.execCurrent,
+        icon: controlsPlay,
+        title: isMac ? 'Run (⌘↩)' : 'Run (ctrl+enter)',
+        disabled: editorIsEmpty,
+        iconColor: this.props.theme.linkHover
+      }
+    ]
+
+    const isFullscreen = this.props.editorSize === 'FULLSCREEN'
+    const isCardSize = this.props.editorSize === 'CARD'
+
     return (
-      <Bar expanded={this.state.expanded} minHeight={this.state.editorHeight}>
-        <EditorWrapper
-          expanded={this.state.expanded}
-          minHeight={this.state.editorHeight}
-        >
+      <Bar>
+        <Header>
+          <ActionButtons
+            width={16}
+            buttons={buttons}
+            editorValue={() => this.getEditorValue()}
+            isRelateAvailable={this.props.isRelateAvailable}
+          />
+        </Header>
+        <EditorWrapper fullscreen={isFullscreen} cardSize={isCardSize}>
           <Codemirror
             ref={ref => {
               this.editor = ref
             }}
             onParsed={this.updateCode}
-            onChanges={this.updateHeight}
+            onChanges={this.updateSize}
             options={options}
             schema={this.props.schema}
             initialPosition={this.state.lastPosition}
           />
         </EditorWrapper>
-        <ActionButtonSection>
-          <Render if={this.state.contentId}>
-            <EditModeEditorButton
-              onClick={() =>
-                this.props.onFavoriteUpdateClick(
-                  this.state.contentId,
-                  this.getEditorValue()
-                )
-              }
-              disabled={this.getEditorValue().length < 1}
-              color="#ffaf00"
-              title="Favorite"
-              icon={pencil}
-            />
-          </Render>
-          <Render if={!this.state.contentId}>
-            <EditorButton
-              data-testid="editorFavorite"
-              onClick={() => {
-                this.props.onFavoriteClick(this.getEditorValue())
-              }}
-              disabled={this.getEditorValue().length < 1}
-              title="Update favorite"
-              icon={ratingStar}
-            />
-          </Render>
-          <EditorButton
-            data-testid="clearEditorContent"
-            onClick={() => this.clearEditor()}
-            disabled={this.getEditorValue().length < 1}
-            title="Clear"
-            icon={eraser2}
-          />
-          <EditorButton
-            data-testid="submitQuery"
-            onClick={() => this.execCurrent()}
-            disabled={this.getEditorValue().length < 1}
-            title="Play"
-            icon={controlsPlay}
-          />
-        </ActionButtonSection>
       </Bar>
     )
   }
@@ -503,13 +566,15 @@ const mapStateToProps = state => {
         ...state.meta.functions.map(schemaConvert.toFunction)
       ],
       procedures: state.meta.procedures.map(schemaConvert.toProcedure)
-    }
+    },
+    enableMultiStatementMode: shouldEnableMultiStatementMode(state),
+    isRelateAvailable:
+      state.app.relateUrl &&
+      state.app.relateApiToken &&
+      state.app.neo4jDesktopProjectId
   }
 }
 
-export default withBus(
-  connect(
-    mapStateToProps,
-    mapDispatchToProps
-  )(Editor)
+export default withTheme(
+  withBus(connect(mapStateToProps, mapDispatchToProps)(Editor))
 )

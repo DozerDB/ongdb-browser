@@ -30,18 +30,41 @@ export const DESKTOP = 'DESKTOP'
 export const WEB = 'WEB'
 export const CLOUD = 'CLOUD'
 
+const SECURE_SCHEMES = ['neo4j+s', 'bolt+s']
+const INSECURE_SCHEMES = ['neo4j', 'bolt']
+
 // Selectors
 export const getHostedUrl = state => (state[NAME] || {}).hostedUrl || null
 export const getEnv = state => (state[NAME] || {}).env || WEB
 export const hasDiscoveryEndpoint = state =>
   [WEB, CLOUD].includes(getEnv(state))
 export const inWebEnv = state => getEnv(state) === WEB
+export const inWebBrowser = state => [WEB, CLOUD].includes(getEnv(state))
+export const getAllowedBoltSchemes = (state, encryptionFlag) => {
+  const isHosted = inWebBrowser(state)
+  const hostedUrl = getHostedUrl(state)
+  return !isHosted
+    ? encryptionFlag
+      ? SECURE_SCHEMES
+      : [...SECURE_SCHEMES, ...INSECURE_SCHEMES]
+    : (hostedUrl || '').startsWith('https')
+    ? SECURE_SCHEMES
+    : INSECURE_SCHEMES
+}
 
 // Reducer
 export default function reducer(state = { hostedUrl: null }, action) {
   switch (action.type) {
     case APP_START:
-      return { ...state, hostedUrl: action.url, env: action.env }
+      return {
+        ...state,
+        hostedUrl: action.url,
+        env: action.env,
+        relateUrl: action.relateUrl,
+        relateApiToken: action.relateApiToken,
+        neo4jDesktopProjectId: action.neo4jDesktopProjectId,
+        neo4jDesktopGraphAppId: action.neo4jDesktopGraphAppId
+      }
     default:
       return state
   }

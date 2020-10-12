@@ -21,7 +21,7 @@
 import React from 'react'
 import { transformHelpTopicToCommand } from 'services/commandUtils'
 
-// Avoid duplication and don list error-pages
+// Avoid duplication and don't list error-pages
 const unlistedCommands = [
   'unfound',
   'unknown',
@@ -145,7 +145,7 @@ export const DynamicTopics = ({ docs = {}, description = '', filter = [] }) => {
   }
 
   const types = {}
-  Object.keys(filteredDocs).map(key => {
+  Object.keys(filteredDocs).forEach(key => {
     const { title, chapters } = filteredDocs[key]
     types[key] = {
       title,

@@ -36,7 +36,6 @@ const rollDownAnimation = keyframes`
 export const StyledFrame = styled.article`
   width: auto;
   background-color: ${props => props.theme.secondaryBackground};
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
   animation: ${rollDownAnimation} 0.4s ease-in;
   border: ${props => props.theme.frameBorder};
   margin: ${props => (props.fullscreen ? '0' : '10px 0px 10px 0px')};
@@ -50,16 +49,23 @@ export const StyledFrame = styled.article`
   &:hover .carousel-intro-animation {
     opacity: 0;
   }
+  box-shadow: 0px 0px 2px rgba(52, 58, 67, 0.1),
+    0px 1px 2px rgba(52, 58, 67, 0.08), 0px 1px 4px rgba(52, 58, 67, 0.08);
+  border-radius: 2px;
 `
 
 export const StyledFrameBody = styled.div`
+  overflow: auto;
   min-height: ${dim.frameBodyHeight / 2}px;
-  max-height: ${props =>
-    props.collapsed
-      ? 0
-      : props.fullscreen
-      ? '100%'
-      : dim.frameBodyHeight - dim.frameStatusbarHeight + 1 + 'px'};
+  max-height: ${props => {
+    if (props.collapsed) {
+      return 0
+    }
+    if (props.fullscreen) {
+      return '100%'
+    }
+    return dim.frameBodyHeight - dim.frameStatusbarHeight + 1 + 'px'
+  }};
   display: ${props => (props.collapsed ? 'none' : 'flex')};
   flex-direction: row;
   width: 100%;
@@ -128,7 +134,7 @@ export const StyledFrameStatusbar = styled.div`
   flex-direction: row;
   flex: none;
   align-items: center;
-  padding-left: 10px;
+  padding-left: 0px;
 
   .statusbar--success {
     color: ${props => props.theme.success};
@@ -143,7 +149,6 @@ export const StyledFrameSidebar = styled.ul`
   padding-left: 0;
   margin: 0;
   flex: 0 0 auto;
-  border-right: ${props => props.theme.inFrameBorder};
   background-color: ${props => props.theme.frameSidebarBackground};
 `
 
@@ -160,7 +165,7 @@ export const StyledFrameTitlebarButtonSection = styled.ul`
 
 export const StyledFrameTitleBar = styled.div`
   height: ${dim.frameTitlebarHeight}px;
-  border-bottom: ${props => props.theme.inFrameBorder};
+  border-bottom: transparent;
   line-height: ${dim.frameTitlebarHeight}px;
   color: ${props => props.theme.frameTitlebarText};
   display: flex;
@@ -174,9 +179,12 @@ export const StyledFrameStatusbarText = styled.label`
 export const StyledFrameCommand = styled.label`
   font-family: ${props => props.theme.editorFont};
   color: ${props => props.theme.secondaryButtonText};
+  background-color: ${props => props.theme.frameSidebarBackground};
+  border-radius: 2px;
+  padding-left: 6px;
   font-size: 1.2em;
   line-height: 2.2em;
-  margin: 3px 5px 3px 15px;
+  margin: 3px 5px 3px 3px;
   flex: 1 1 auto;
   min-width: 0;
   white-space: nowrap;
@@ -189,5 +197,5 @@ export const StyledFrameCommand = styled.label`
   }
   .disable-font-ligatures & {
     font-variant-ligatures: none !important;
-  }
+  } 
 `

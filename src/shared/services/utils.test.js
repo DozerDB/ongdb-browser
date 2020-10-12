@@ -155,10 +155,10 @@ describe('utils', () => {
   test('can move items in an array', () => {
     // Given
     const tests = [
-      { test: [1, 2, 3], from: -1, to: 1, expect: false },
-      { test: [1, 2, 3], from: 0, to: 3, expect: false },
-      { test: [1, 2, 3], from: 5, to: 1, expect: false },
-      { test: 'string', from: 0, to: 3, expect: false },
+      { test: [1, 2, 3], from: -1, to: 1, expect: [1, 2, 3] },
+      { test: [1, 2, 3], from: 0, to: 3, expect: [1, 2, 3] },
+      { test: [1, 2, 3], from: 5, to: 1, expect: [1, 2, 3] },
+      { test: 'string', from: 0, to: 3, expect: [] },
       { test: [1, 2, 3], from: 0, to: 1, expect: [2, 1, 3] },
       { test: [1, 2, 3], from: 2, to: 1, expect: [1, 3, 2] },
       { test: [1, 2, 3], from: 2, to: 0, expect: [3, 1, 2] }
@@ -332,13 +332,13 @@ describe('utils', () => {
       password: 'neoPass'
     })
   })
-  describe('extractWhitelistFromConfigString', () => {
+  describe('extractAllowlistFromConfigString', () => {
     test('extracts comma separated string of hosts to array', () => {
       // Given
       const input = 'localhost,guides.neo4j.com'
 
       // When
-      const res = utils.extractWhitelistFromConfigString(input)
+      const res = utils.extractAllowlistFromConfigString(input)
 
       // Then
       expect(res).toEqual(['localhost', 'guides.neo4j.com'])
@@ -348,7 +348,7 @@ describe('utils', () => {
       const input = 'localhost , guides.neo4j.com/ , neo4j.com'
 
       // When
-      const res = utils.extractWhitelistFromConfigString(input)
+      const res = utils.extractAllowlistFromConfigString(input)
 
       // Then
       expect(res).toEqual(['localhost', 'guides.neo4j.com', 'neo4j.com'])
@@ -377,14 +377,14 @@ describe('utils', () => {
       ])
     })
   })
-  describe('resolveWhitelistWildcard', () => {
+  describe('resolveAllowlistWildcard', () => {
     test('Resolves * to given urls', () => {
       // Given
       const input = ['*']
       const resolveTo = ['guides.neo4j.com', 'localhost']
 
       // When
-      const res = utils.resolveWhitelistWildcard(input, resolveTo)
+      const res = utils.resolveAllowlistWildcard(input, resolveTo)
 
       // Then
       expect(res).toEqual(['guides.neo4j.com', 'localhost'])
@@ -401,7 +401,7 @@ describe('utils', () => {
       const resolveTo = ['guides.neo4j.com', 'localhost']
 
       // When
-      const res = utils.resolveWhitelistWildcard(input, resolveTo)
+      const res = utils.resolveAllowlistWildcard(input, resolveTo)
 
       // Then
       expect(res).toEqual([
@@ -415,23 +415,23 @@ describe('utils', () => {
     })
   })
   describe('hostIsAllowed', () => {
-    test('should respect host whitelist', () => {
+    test('should respect host allowlist', () => {
       // Given
-      const whitelist = 'https://second.com,fourth.com'
+      const allowlist = 'https://second.com,fourth.com'
 
       // When && Then
-      expect(utils.hostIsAllowed('http://first.com', whitelist)).toEqual(false)
-      expect(utils.hostIsAllowed('http://second.com', whitelist)).toEqual(false)
-      expect(utils.hostIsAllowed('https://second.com', whitelist)).toEqual(true)
-      expect(utils.hostIsAllowed('http://fourth.com', whitelist)).toEqual(true)
-      expect(utils.hostIsAllowed('https://fourth.com', whitelist)).toEqual(true)
+      expect(utils.hostIsAllowed('http://first.com', allowlist)).toEqual(false)
+      expect(utils.hostIsAllowed('http://second.com', allowlist)).toEqual(false)
+      expect(utils.hostIsAllowed('https://second.com', allowlist)).toEqual(true)
+      expect(utils.hostIsAllowed('http://fourth.com', allowlist)).toEqual(true)
+      expect(utils.hostIsAllowed('https://fourth.com', allowlist)).toEqual(true)
     })
-    test('should pass everything when whitelist is *', () => {
+    test('should pass everything when allowlist is *', () => {
       // Given
-      const whitelist = '*'
+      const allowlist = '*'
 
       // When && Then
-      expect(utils.hostIsAllowed('anything', whitelist)).toEqual(true)
+      expect(utils.hostIsAllowed('anything', allowlist)).toEqual(true)
     })
     test('can parse url params correctly', () => {
       // Given
@@ -692,31 +692,6 @@ describe('toKeyString', () => {
       expect(utils.toKeyString(str.str)).toEqual(str.expect)
     })
   })
-  describe('generateBoltHost', () => {
-    it('generates a bolt host as expected', () => {
-      const tests = [
-        { host: '', expected: 'neo4j://localhost:7687' },
-        { host: 'localhost', expected: 'neo4j://localhost' },
-        { host: 'localhost:7688', expected: 'neo4j://localhost:7688' },
-        { host: 'bolt://localhost', expected: 'bolt://localhost' },
-        { host: 'bolt://localhost:7688', expected: 'bolt://localhost:7688' },
-        { host: 'neo4j://localhost:7688', expected: 'neo4j://localhost:7688' },
-        {
-          host: 'bolt+routing://localhost',
-          expected: 'neo4j://localhost'
-        },
-        {
-          host: 'bolt+routing://localhost:7688',
-          expected: 'neo4j://localhost:7688'
-        },
-        { host: null, expected: 'neo4j://localhost:7687' }
-      ]
-
-      tests.forEach(test => {
-        expect(utils.generateBoltHost(test.host)).toEqual(test.expected)
-      })
-    })
-  })
   describe('detectRuntimeEnv', () => {
     const tests = [
       [
@@ -735,10 +710,9 @@ describe('toKeyString', () => {
         [
           {
             location: {
-              href:
-                'https://mydomain.com:7474?neo4jDesktopApiUrl=' +
-                encodeURIComponent('https://graphql.api.local:3001') +
-                '&neo4jDesktopGraphAppClientId=xxx'
+              href: `https://mydomain.com:7474?neo4jDesktopApiUrl=${encodeURIComponent(
+                'https://graphql.api.local:3001'
+              )}&neo4jDesktopGraphAppClientId=xxx`
             }
           },
           []

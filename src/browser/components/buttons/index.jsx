@@ -33,10 +33,16 @@ export const CloseButton = props => {
 }
 
 export const EditorButton = props => {
-  const { icon, title, ...rest } = props
+  const { icon, title, color, width, ...rest } = props
+  const overrideColor = { ...(color ? { color } : {}) }
   return (
-    <BaseButton title={title}>
-      <SVGInline svg={icon} accessibilityLabel={title} {...rest} width="24px" />
+    <BaseButton title={title} style={overrideColor} width={width}>
+      <SVGInline
+        svg={icon}
+        accessibilityLabel={title}
+        {...rest}
+        width={`${width}px`}
+      />
     </BaseButton>
   )
 }
@@ -52,8 +58,8 @@ const BaseButton = styled.span`
   color: ${props => props.theme.secondaryButtonText};
   background-color: ${props => props.theme.secondaryButtonBackground};
   border-radius: 50%;
-  width: 28px;
-  height: 28px;
+  width: 41px;
+  height: 39px;
   font-size: 28px;
   line-height: 28px;
   text-decoration: none;
@@ -61,16 +67,15 @@ const BaseButton = styled.span`
   cursor: pointer;
   vertical-align: middle;
   display: inline-block;
-`
-
-export const EditModeEditorButton = styled(EditorButton)`
-  color: ${props => props.theme.editModeButtonText};
+  &:hover {
+    opacity: 0.55;
+  }
 `
 
 export const StyledNavigationButton = styled.button`
   background: transparent;
   border: 0;
-  width: 80px;
+  width: 60px;
   line-height: 67px;
   padding-top: 3px;
   font-size: 28px;
@@ -212,27 +217,27 @@ export const FormButton = props => {
 
   if (icon && label) {
     return (
-      <ButtonType {...rest} type="button">
+      <ButtonType type="button" {...rest}>
         {label} {icon}
       </ButtonType>
     )
   }
   if (icon) {
     return (
-      <ButtonType {...rest} type="button">
+      <ButtonType type="button" {...rest}>
         {icon}
       </ButtonType>
     )
   }
   if (label) {
     return (
-      <ButtonType {...rest} type="button">
+      <ButtonType type="button" {...rest}>
         {label}
       </ButtonType>
     )
   }
   return (
-    <ButtonType {...props} type="button">
+    <ButtonType type="button" {...props}>
       {children}
     </ButtonType>
   )
@@ -250,7 +255,7 @@ export const CypherFrameButton = props => {
 const StyledCypherFrameButton = styled.li`
   color: ${props => props.theme.secondaryButtonText};
   background-color: transparent;
-  border-bottom: ${props => props.theme.inFrameBorder};
+  border-bottom: 1px transparent;
   height: 58px;
   font-size: 21px !important;
   line-height: 21px;
@@ -259,6 +264,7 @@ const StyledCypherFrameButton = styled.li`
   cursor: pointer;
   overflow: hidden;
   text-align: center;
+  fill: ${props => props.theme.secondaryButtonText};
   &:hover {
     background-color: ${props => props.theme.secondaryButtonBackgroundHover};
     color: ${props => props.theme.secondaryButtonTextHover};
@@ -283,7 +289,7 @@ export const FrameButton = props => {
 const StyledFrameButton = styled.li`
   color: ${props => props.theme.secondaryButtonText};
   background-color: transparent;
-  border-left: ${props => props.theme.inFrameBorder};
+  border-left: transparent;
   height: ${dim.frameTitlebarHeight}px;
   width: 41px;
   cursor: pointer;
@@ -355,15 +361,15 @@ const BaseCarouselButton = styled.button`
   outline: none;
 
   &.rounded {
-    background-color: ${props =>
-      hexToRgba(props.theme.secondaryButtonText, 0.1)};
-    border-radius: 0 5px 5px 0;
+    background-color: ${props => hexToRgba(props.theme.frameCommandBackground)};
+    border-radius: 0 2px 2px 0;
     position: absolute;
     left: 0;
-    top: 20px;
-    bottom: 59px;
+    top: 0px;
+    bottom: 0px;
     height: auto;
     width: 32px;
+    margin-bottom: 39px;
 
     i {
       margin-right: 3px;

@@ -34,7 +34,7 @@ const asTitleString = connectionData => {
     return null
   }
   const builtTitle = buildTitleFromConnectionData()
-  return (builtTitle ? builtTitle + ' - ' : '') + 'ONgDB Browser'
+  return `${builtTitle ? `${builtTitle} - ` : ''}ONgDB Browser`
 }
 
 export default asTitleString

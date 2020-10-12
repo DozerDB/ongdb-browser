@@ -1,4 +1,6 @@
 module.exports = {
+  // TypeScript files will be handled by ts-jest, and JavaScript files will be handled by babel-jest.
+  preset: 'ts-jest/presets/js-with-babel',
   testEnvironment: 'jest-environment-jsdom',
   setupFiles: [
     'raf/polyfill.js',
@@ -26,7 +28,12 @@ module.exports = {
     'project-root(.*)$': '<rootDir>$1'
   },
   modulePaths: ['<rootDir>/src', '<rootDir>/src/shared'],
-  collectCoverageFrom: ['**/src/**/*.js', '**/src/**/*.jsx'],
+  collectCoverageFrom: [
+    '**/src/**/*.js',
+    '**/src/**/*.jsx',
+    '**/src/**/*.ts',
+    '**/src/**/*.tsx'
+  ],
   coverageThreshold: {
     global: {
       statements: 45,

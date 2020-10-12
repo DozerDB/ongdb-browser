@@ -27,11 +27,11 @@ import {
   extractStatementsFromString
 } from 'services/commandUtils'
 import {
-  extractWhitelistFromConfigString,
+  extractAllowlistFromConfigString,
   addProtocolsToUrlList,
   firstSuccessPromise,
   serialExecution,
-  resolveWhitelistWildcard
+  resolveAllowlistWildcard
 } from 'services/utils'
 import helper from 'services/commandInterpreterHelper'
 import { addHistory } from '../history/historyDuck'
@@ -46,24 +46,24 @@ import { CONNECTION_SUCCESS } from '../connections/connectionsDuck'
 import {
   UPDATE_SETTINGS,
   getAvailableSettings,
-  getRemoteContentHostnameWhitelist,
-  getDefaultRemoteContentHostnameWhitelist
+  getRemoteContentHostnameAllowlist,
+  getDefaultRemoteContentHostnameAllowlist
 } from '../dbMeta/dbMetaDuck'
 import { APP_START, USER_CLEAR } from 'shared/modules/app/appDuck'
 import { add as addFrame } from 'shared/modules/stream/streamDuck'
 import { update as updateQueryResult } from 'shared/modules/requests/requestsDuck'
 
 export const NAME = 'commands'
-export const SINGLE_COMMAND_QUEUED = NAME + '/SINGLE_COMMAND_QUEUED'
-export const COMMAND_QUEUED = NAME + '/COMMAND_QUEUED'
-export const SYSTEM_COMMAND_QUEUED = NAME + '/SYSTEM_COMMAND_QUEUED'
-export const UNKNOWN_COMMAND = NAME + '/UNKNOWN_COMMAND'
-export const SHOW_ERROR_MESSAGE = NAME + '/SHOW_ERROR_MESSAGE'
-export const CLEAR_ERROR_MESSAGE = NAME + '/CLEAR_ERROR_MESSAGE'
-export const CYPHER = NAME + '/CYPHER'
-export const CYPHER_SUCCEEDED = NAME + '/CYPHER_SUCCEEDED'
-export const CYPHER_FAILED = NAME + '/CYPHER_FAILED'
-export const FETCH_GUIDE_FROM_WHITELIST = NAME + 'FETCH_GUIDE_FROM_WHITELIST'
+export const SINGLE_COMMAND_QUEUED = `${NAME}/SINGLE_COMMAND_QUEUED`
+export const COMMAND_QUEUED = `${NAME}/COMMAND_QUEUED`
+export const SYSTEM_COMMAND_QUEUED = `${NAME}/SYSTEM_COMMAND_QUEUED`
+export const UNKNOWN_COMMAND = `${NAME}/UNKNOWN_COMMAND`
+export const SHOW_ERROR_MESSAGE = `${NAME}/SHOW_ERROR_MESSAGE`
+export const CLEAR_ERROR_MESSAGE = `${NAME}/CLEAR_ERROR_MESSAGE`
+export const CYPHER = `${NAME}/CYPHER`
+export const CYPHER_SUCCEEDED = `${NAME}/CYPHER_SUCCEEDED`
+export const CYPHER_FAILED = `${NAME}/CYPHER_FAILED`
+export const FETCH_GUIDE_FROM_ALLOWLIST = `${NAME}FETCH_GUIDE_FROM_ALLOWLIST`
 
 export const useDbCommand = 'use'
 export const listDbsCommand = 'dbs'
@@ -71,14 +71,12 @@ export const autoCommitTxCommand = 'auto'
 
 const initialState = {}
 export const getErrorMessage = state => state[NAME].errorMessage
-export const whitelistedMultiCommands = () => [':param', ':use']
+export const allowlistedMultiCommands = () => [':param', ':use']
 
 export default function reducer(state = initialState, action) {
-  if (action.type === APP_START) {
-    state = { ...initialState, ...state }
-  }
-
   switch (action.type) {
+    case APP_START:
+      return { ...initialState, ...state }
     case SHOW_ERROR_MESSAGE:
       return { errorMessage: action.errorMessage }
     case CLEAR_ERROR_MESSAGE:
@@ -92,22 +90,32 @@ export default function reducer(state = initialState, action) {
 
 // Action creators
 
-export const executeCommand = (cmd, id, requestId, parentId) => {
+export const executeCommand = (
+  cmd,
+  { id, requestId, parentId, useDb, isRerun = false } = {}
+) => {
   return {
     type: COMMAND_QUEUED,
     cmd,
     id,
     requestId,
-    parentId
+    parentId,
+    useDb,
+    isRerun
   }
 }
 
-export const executeSingleCommand = (cmd, id, requestId) => {
+export const executeSingleCommand = (
+  cmd,
+  { id, requestId, useDb, isRerun = false } = {}
+) => {
   return {
     type: SINGLE_COMMAND_QUEUED,
     cmd,
     id,
-    requestId
+    requestId,
+    useDb,
+    isRerun
   }
 }
 
@@ -125,7 +133,7 @@ export const unknownCommand = cmd => ({
 
 export const showErrorMessage = errorMessage => ({
   type: SHOW_ERROR_MESSAGE,
-  errorMessage: errorMessage
+  errorMessage
 })
 export const clearErrorMessage = () => ({
   type: CLEAR_ERROR_MESSAGE
@@ -134,8 +142,8 @@ export const clearErrorMessage = () => ({
 export const cypher = query => ({ type: CYPHER, query })
 export const successfulCypher = query => ({ type: CYPHER_SUCCEEDED, query })
 export const unsuccessfulCypher = query => ({ type: CYPHER_FAILED, query })
-export const fetchGuideFromWhitelistAction = url => ({
-  type: FETCH_GUIDE_FROM_WHITELIST,
+export const fetchGuideFromAllowlistAction = url => ({
+  type: FETCH_GUIDE_FROM_ALLOWLIST,
   url
 })
 
@@ -153,7 +161,13 @@ export const handleCommandEpic = (action$, store) =>
       store.dispatch(clearErrorMessage())
       const maxHistory = getMaxHistory(store.getState())
       store.dispatch(addHistory(action.cmd, maxHistory))
-      const statements = shouldEnableMultiStatementMode(store.getState())
+
+      // Semicolons in :style grass break parsing of multiline statements from codemirror.
+      const useMultiStatement =
+        !action.cmd.startsWith(':style') &&
+        shouldEnableMultiStatementMode(store.getState())
+
+      const statements = useMultiStatement
         ? extractStatementsFromString(action.cmd)
         : [action.cmd]
 
@@ -162,29 +176,27 @@ export const handleCommandEpic = (action$, store) =>
       }
       if (statements.length === 1) {
         // Single command
-        return store.dispatch(
-          executeSingleCommand(statements[0], action.id, action.requestId)
-        )
+        return store.dispatch(executeSingleCommand(action.cmd, action))
       }
       const parentId = action.parentId || v4()
       store.dispatch(
         addFrame({ type: 'cypher-script', id: parentId, cmd: action.cmd })
       )
       const cmdchar = getCmdChar(store.getState())
-      const jobs = []
-      statements.forEach(cmd => {
-        cmd = cleanCommand(cmd)
+      const jobs = statements.map(cmd => {
+        const cleanCmd = cleanCommand(cmd)
         const requestId = v4()
         const cmdId = v4()
-        const whitelistedCommands = whitelistedMultiCommands()
-        const isWhitelisted =
-          whitelistedCommands.filter(wcmd => !!cmd.startsWith(wcmd)).length > 0
+        const allowlistedCommands = allowlistedMultiCommands()
+        const isAllowlisted = allowlistedCommands.some(wcmd =>
+          cleanCmd.startsWith(wcmd)
+        )
 
-        // Ignore client commands that aren't whitelisted
-        const ignore = !!cmd.startsWith(cmdchar) && !isWhitelisted
+        // Ignore client commands that aren't allowlisted
+        const ignore = cleanCmd.startsWith(cmdchar) && !isAllowlisted
 
         const { action, interpreted } = buildCommandObject(
-          { cmd, ignore },
+          { cmd: cleanCmd, ignore },
           helper.interpret,
           getCmdChar(store.getState())
         )
@@ -195,13 +207,13 @@ export const handleCommandEpic = (action$, store) =>
           addFrame({ ...action, requestId, type: interpreted.name })
         )
         store.dispatch(updateQueryResult(requestId, null, 'waiting'))
-        jobs.push({
+        return {
           workFn: () =>
             interpreted.exec(action, cmdchar, store.dispatch, store),
           onStart: () => {},
           onSkip: () =>
             store.dispatch(updateQueryResult(requestId, null, 'skipped'))
-        })
+        }
       })
 
       serialExecution(...jobs).catch(() => {})
@@ -225,6 +237,7 @@ export const handleSingleCommandEpic = (action$, store) =>
         if (interpreted.name !== 'cypher') {
           action.cmd = cleanCommand(action.cmd)
         }
+        action.ts = new Date().getTime()
         const res = interpreted.exec(action, cmdchar, store.dispatch, store)
         if (!res || !res.then) {
           resolve(noop)
@@ -263,26 +276,26 @@ export const postConnectCmdEpic = (some$, store) =>
       .take(1)
   )
 
-export const fetchGuideFromWhitelistEpic = (some$, store) =>
-  some$.ofType(FETCH_GUIDE_FROM_WHITELIST).mergeMap(action => {
+export const fetchGuideFromAllowlistEpic = (some$, store) =>
+  some$.ofType(FETCH_GUIDE_FROM_ALLOWLIST).mergeMap(action => {
     if (!action.$$responseChannel || !action.url) {
       return Rx.Observable.of({ type: 'NOOP' })
     }
-    const whitelistStr = getRemoteContentHostnameWhitelist(store.getState())
-    const whitelist = extractWhitelistFromConfigString(whitelistStr)
-    const defaultWhitelist = extractWhitelistFromConfigString(
-      getDefaultRemoteContentHostnameWhitelist(store.getState())
+    const allowlistStr = getRemoteContentHostnameAllowlist(store.getState())
+    const allowlist = extractAllowlistFromConfigString(allowlistStr)
+    const defaultAllowlist = extractAllowlistFromConfigString(
+      getDefaultRemoteContentHostnameAllowlist(store.getState())
     )
-    const resolvedWildcardWhitelist = resolveWhitelistWildcard(
-      whitelist,
-      defaultWhitelist
+    const resolvedWildcardAllowlist = resolveAllowlistWildcard(
+      allowlist,
+      defaultAllowlist
     )
-    const urlWhitelist = addProtocolsToUrlList(resolvedWildcardWhitelist)
-    const guidesUrls = urlWhitelist.map(url => url + '/' + action.url)
+    const urlAllowlist = addProtocolsToUrlList(resolvedWildcardAllowlist)
+    const guidesUrls = urlAllowlist.map(url => `${url}/${action.url}`)
 
     return firstSuccessPromise(guidesUrls, url => {
       // Get first successful fetch
-      return fetchRemoteGuide(url, whitelistStr).then(r => ({
+      return fetchRemoteGuide(url, allowlistStr).then(r => ({
         type: action.$$responseChannel,
         success: true,
         result: r

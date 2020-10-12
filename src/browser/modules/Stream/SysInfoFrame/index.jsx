@@ -24,6 +24,7 @@ import { withBus } from 'react-suber'
 import dateFormat from 'dateformat'
 import { CYPHER_REQUEST } from 'shared/modules/cypher/cypherDuck'
 import { isACausalCluster } from 'shared/modules/features/featuresDuck'
+import { isEnterprise } from 'shared/modules/dbMeta/dbMetaDuck'
 import {
   isConnected,
   getUseDb
@@ -31,11 +32,9 @@ import {
 import FrameTemplate from 'browser/modules/Frame/FrameTemplate'
 import FrameError from 'browser/modules/Frame/FrameError'
 import Render from 'browser-components/Render'
-import { RefreshIcon } from 'browser-components/icons/Icons'
 import {
   StyledStatusBar,
   AutoRefreshToggle,
-  RefreshQueriesButton,
   AutoRefreshSpan,
   StatusbarWrapper
 } from '../AutoRefresh/styled'
@@ -81,6 +80,13 @@ export class SysInfoFrame extends Component {
       } else {
         clearInterval(this.timer)
       }
+    }
+    if (
+      this.props.frame &&
+      this.props.frame.ts !== prevProps.frame.ts &&
+      this.props.frame.isRerun
+    ) {
+      this.getSysInfo()
     }
   }
 
@@ -129,6 +135,7 @@ export class SysInfoFrame extends Component {
         {...this.state}
         databases={this.props.databases}
         isACausalCluster={this.props.isACausalCluster}
+        isEnterpriseEdition={this.props.isEnterprise}
         useDb={this.props.useDb}
       />
     )
@@ -139,7 +146,7 @@ export class SysInfoFrame extends Component {
         contents={content}
         statusbar={
           <StatusbarWrapper>
-            <Render if={this.state.errors}>
+            <Render if={this.state.error}>
               <FrameError message={this.state.error} />
             </Render>
             <Render if={this.state.success}>
@@ -147,9 +154,6 @@ export class SysInfoFrame extends Component {
                 {this.state.lastFetch &&
                   `Updated: ${dateFormat(this.state.lastFetch)}`}
                 {this.state.success}
-                <RefreshQueriesButton onClick={() => this.getSysInfo()}>
-                  <RefreshIcon />
-                </RefreshQueriesButton>
                 <AutoRefreshSpan>
                   <AutoRefreshToggle
                     checked={this.state.autoRefresh}
@@ -169,6 +173,7 @@ const mapStateToProps = state => {
   return {
     hasMultiDbSupport: hasMultiDbSupport(state),
     isACausalCluster: isACausalCluster(state),
+    isEnterprise: isEnterprise(state),
     isConnected: isConnected(state),
     databases: getDatabases(state),
     useDb: getUseDb(state)
